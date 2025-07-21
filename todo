@@ -1,0 +1,21 @@
+[] test existing routes
+[] topology.yml
+
+
+GET /config (otional ? configID otherwise lists all)
+POST /config
+PUT /config
+DELETE /config
+
+
+scenarioID can be only 6 character a-zA-Z0-6
+
+POST /ctfd/scenario (accept only --form file= .zip file returns use http library for that 200 add error handling save the file in /data/ctfd_scenarios folder inside folder with its unique 6 - create function to generate it and function to check if id is correct character a-zA-Z0-9 id)
+
+GET /ctfd/scenario (otional ?scenarioID check if exists otherwise 404, return scenarioID, scenarioName and scenarioFile if - scenarioID was not provided than lists all scnarioID and scenarioName without scenarioFile)
+
+PUT /ctfd/scenario (with required argument ?scenarioID --form file=.zip error handling save data inside given scenarioID folder - remove everything inside it and save it there)
+
+DELETE /ctfd/scenario (with required argument ?scenarioID remove folder with given id and all its contents - returns 204)
+
+dont forget error handling does not have to be verbose
