@@ -24,7 +24,7 @@ func main() {
 	defer db.Close()
 
 	r := gin.Default()
-	//cgin.SetMode(gin.ReleaseMode)
+	// gin.SetMode(gin.ReleaseMode)
 	r.SetTrustedProxies(nil)
 
 	// Register routes
@@ -33,7 +33,8 @@ func main() {
 	// Ensure base directories exist
 	utils.EnsureDirectoryExists(config.ScenarioFolder)
 	utils.EnsureDirectoryExists(config.CtfdDataFolder)
+	utils.EnsureDirectoryExists(config.TopologyConfigFolder)
 
 	// Start the server
-	r.Run(":8080")
+	r.Run("0.0.0.0:5000")
 }

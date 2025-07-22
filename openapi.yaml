@@ -1,0 +1,296 @@
+openapi: 3.0.3
+info:
+  title: Ludus Extension API
+  version: "1.0"
+  description: API for managing scenarios, data, and topology in Ludus CTFd extension.
+
+servers:
+  - url: http://localhost:5000
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /ctfd/scenario:
+    get:
+      summary: Get scenario(s)
+      description: Get a scenario by ID (as base64) or list all scenarios.
+      parameters:
+        - in: query
+          name: scenarioID
+          schema:
+            type: string
+          required: false
+          description: Scenario ID
+      responses:
+        '200':
+          description: Scenario(s) found
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      scenarioID:
+                        type: string
+                      scenarioName:
+                        type: string
+                      scenarioFile:
+                        type: string
+                        description: base64-encoded file
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        scenarioID:
+                          type: string
+                        scenarioName:
+                          type: string
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []
+    put:
+      summary: Create or update a scenario
+      description: Upload a .zip file to create or update a scenario.
+      parameters:
+        - in: query
+          name: scenarioID
+          schema:
+            type: string
+          required: false
+          description: Scenario ID (if updating)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Uploaded successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []
+    delete:
+      summary: Delete a scenario
+      parameters:
+        - in: query
+          name: scenarioID
+          schema:
+            type: string
+          required: true
+          description: Scenario ID
+      responses:
+        '204':
+          description: Deleted successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []
+
+  /ctfd/data:
+    get:
+      summary: Get data
+      parameters:
+        - in: query
+          name: ctfdDataId
+          schema:
+            type: string
+          required: false
+          description: Data ID
+      responses:
+        '200':
+          description: Data found
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []
+    put:
+      summary: Create or update data
+      parameters:
+        - in: query
+          name: ctfdDataId
+          schema:
+            type: string
+          required: false
+          description: Data ID (if updating)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ctfd_data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      user:
+                        type: string
+                      password:
+                        type: string
+                      team:
+                        type: string
+                      flags:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            variable:
+                              type: string
+                            contents:
+                              type: string
+                          required:
+                            - variable
+                            - contents
+                          additionalProperties: false
+                    required:
+                      - user
+                      - password
+                      - flags
+                    additionalProperties: false
+              required:
+                - ctfd_data
+              additionalProperties: false
+      responses:
+        '200':
+          description: Uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "uploaded successfully"
+                  id:
+                    type: string
+                    example: "ABC123"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+      security:
+        - ApiKeyAuth: []
+    delete:
+      summary: Delete data
+      parameters:
+        - in: query
+          name: ctfdDataId
+          schema:
+            type: string
+          required: true
+          description: Data ID
+      responses:
+        '204':
+          description: Deleted successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []
+
+  /topology:
+    get:
+      summary: Get topology
+      parameters:
+        - in: query
+          name: topologyId
+          schema:
+            type: string
+          required: false
+          description: Topology ID
+      responses:
+        '200':
+          description: Topology found
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []
+    put:
+      summary: Create or update topology
+      parameters:
+        - in: query
+          name: topologyId
+          schema:
+            type: string
+          required: false
+          description: Topology ID (if updating)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Uploaded successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []
+    delete:
+      summary: Delete topology
+      parameters:
+        - in: query
+          name: topologyId
+          schema:
+            type: string
+          required: true
+          description: Topology ID
+      responses:
+        '204':
+          description: Deleted successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+      security:
+        - ApiKeyAuth: []

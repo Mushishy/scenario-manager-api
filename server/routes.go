@@ -3,18 +3,14 @@ package main
 import (
 	"database/sql"
 	"dulus/server/handlers"
+	"dulus/server/utils"
 	"net/http"
 	"strings"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/crypto/bcrypt"
 )
-
-func CheckHash(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
-}
 
 func validateAPIKey(c *gin.Context) {
 	APIKey := c.Request.Header.Get("X-API-Key")
@@ -47,7 +43,7 @@ func validateAPIKey(c *gin.Context) {
 		return
 	}
 
-	if CheckHash(APIKey, hashedAPIKey) {
+	if utils.CheckHash(APIKey, hashedAPIKey) {
 		if isAdmin {
 			c.Set("isAdmin", true)
 		} else {
@@ -62,28 +58,32 @@ func validateAPIKey(c *gin.Context) {
 	}
 }
 
-func Index(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"result": "CTFd Extension for Ludus API"})
-}
-
 func RegisterRoutes(r *gin.Engine) {
+	// Add CORS middleware
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"*"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
+
 	// Index route
-	r.GET("/", validateAPIKey, Index)
+	r.GET("/", validateAPIKey, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"result": "Ludus Extension API"})
+	})
 
 	// Scenario route
-	r.POST("/ctfd/scenario", validateAPIKey, handlers.PostScenario)
 	r.GET("/ctfd/scenario", validateAPIKey, handlers.GetScenario)
 	r.PUT("/ctfd/scenario", validateAPIKey, handlers.PutScenario)
 	r.DELETE("/ctfd/scenario", validateAPIKey, handlers.DeleteScenario)
 
 	// Data route
-	r.POST("/ctfd/data", validateAPIKey, handlers.PostCtfdData)
 	r.GET("/ctfd/data", validateAPIKey, handlers.GetCtfdData)
 	r.PUT("/ctfd/data", validateAPIKey, handlers.PutCtfdData)
 	r.DELETE("/ctfd/data", validateAPIKey, handlers.DeleteCtfdData)
 
 	// Topology route
-	r.POST("/topology", validateAPIKey, handlers.PostTopology)
 	r.GET("/topology", validateAPIKey, handlers.GetTopology)
 	r.PUT("/topology", validateAPIKey, handlers.PutTopology)
 	r.DELETE("/topology", validateAPIKey, handlers.DeleteTopology)

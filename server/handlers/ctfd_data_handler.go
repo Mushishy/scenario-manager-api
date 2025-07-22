@@ -44,7 +44,7 @@ func GetCtfdData(c *gin.Context) {
 
 		c.JSON(http.StatusOK, gin.H{
 			"ctfdDataId": ctfdDataId,
-			"ctfdData":   data,
+			"ctfdData":   data["ctfd_data"],
 		})
 	} else {
 		// List all ctfdDataId
@@ -69,16 +69,34 @@ func GetCtfdData(c *gin.Context) {
 
 func PutCtfdData(c *gin.Context) {
 	ctfdDataId := c.Query("ctfdDataId")
+	var dataPath string
+	var err error
 
-	// Validate the folder ID
-	dataPath, err := utils.ValidateFolderID(config.CtfdDataFolder, ctfdDataId)
-	switch err {
-	case os.ErrInvalid:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	case os.ErrNotExist:
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
+	if ctfdDataId != "" {
+		// Validate the folder ID if ctfdDataId is provided
+		dataPath, err = utils.ValidateFolderID(config.CtfdDataFolder, ctfdDataId)
+		switch err {
+		case os.ErrInvalid:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			return
+		case os.ErrNotExist:
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			return
+		}
+	} else {
+		// Generate a new unique ID if ctfdDataId is not provided
+		ctfdDataId, err = utils.GenerateUniqueID(config.CtfdDataFolder)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		dataPath = filepath.Join(config.CtfdDataFolder, ctfdDataId)
+
+		// Create the directory for the new ID
+		if err := os.MkdirAll(dataPath, os.ModePerm); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
 	}
 
 	// Load the JSON schema
@@ -116,19 +134,9 @@ func PutCtfdData(c *gin.Context) {
 		return
 	}
 
-	// Clean the folder
-	if err := os.RemoveAll(dataPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-	if err := os.MkdirAll(dataPath, os.ModePerm); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
 	// Save the JSON data to a file
 	filePath := filepath.Join(dataPath, "ctfd_data.json")
-	file, err := os.Create(filePath)
+	file, err := os.Create(filePath) // Overwrite or create the file
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 		return
@@ -140,7 +148,8 @@ func PutCtfdData(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Data updated successfully"})
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully", "id": ctfdDataId})
 }
 
 func DeleteCtfdData(c *gin.Context) {
@@ -164,72 +173,4 @@ func DeleteCtfdData(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
-}
-
-func PostCtfdData(c *gin.Context) {
-	// Load the JSON schema
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ctfd_data_schema.json")
-
-	// Parse the JSON input
-	var input map[string]interface{}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	// Validate the input against the schema
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	// Custom validation for 'team' field
-	ctfdData, ok := input["ctfd_data"].([]interface{})
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	if err := utils.ValidateTeamField(ctfdData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	// Generate a unique 6-character ID
-	uniqueID, err := utils.GenerateUniqueID(config.CtfdDataFolder)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	// Create the directory to save the file
-	savePath := filepath.Join(config.CtfdDataFolder, uniqueID)
-	if err := os.MkdirAll(savePath, os.ModePerm); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	// Save the JSON data to a file
-	filePath := filepath.Join(savePath, "ctfd_data.json")
-	file, err := os.Create(filePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-	defer file.Close()
-
-	if err := json.NewEncoder(file).Encode(input); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	// Return success response
-	c.JSON(http.StatusOK, gin.H{"message": "Data uploaded successfully", "id": uniqueID})
 }

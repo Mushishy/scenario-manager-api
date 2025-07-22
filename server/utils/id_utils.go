@@ -2,7 +2,6 @@ package utils
 
 import (
 	"crypto/rand"
-	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -45,35 +44,38 @@ func ValidateFolderID(baseFolder, folderID string) (string, error) {
 
 	// Validate folderID against the regex
 	if !validFolderIDRegex.MatchString(folderID) {
-		return "", errors.New("invalid folder ID")
+		return "", os.ErrInvalid
 	}
 
 	// Resolve the full path
 	folderPath := filepath.Join(baseFolder, folderID)
-	resolvedPath, err := filepath.EvalSymlinks(folderPath)
-	if err != nil {
-		return "", os.ErrInvalid
-	}
 
 	// Ensure the resolved path is within the base folder
 	baseFolderAbs, err := filepath.Abs(baseFolder)
 	if err != nil {
 		return "", os.ErrInvalid
 	}
-	resolvedPathAbs, err := filepath.Abs(resolvedPath)
+
+	folderPathAbs, err := filepath.Abs(folderPath)
 	if err != nil {
 		return "", os.ErrInvalid
 	}
 
-	// Use filepath.Rel to check if resolvedPathAbs is within baseFolderAbs
-	relPath, err := filepath.Rel(baseFolderAbs, resolvedPathAbs)
+	// Use filepath.Rel to check if folderPathAbs is within baseFolderAbs
+	relPath, err := filepath.Rel(baseFolderAbs, folderPathAbs)
 	if err != nil || strings.HasPrefix(relPath, "..") {
 		return "", os.ErrInvalid
 	}
 
-	// Check if the folder exists
-	if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+	// Check if the folder exists (only after validating it's within bounds)
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
 		return "", os.ErrNotExist
+	}
+
+	// Resolve symlinks only after we know the folder exists and is valid
+	resolvedPath, err := filepath.EvalSymlinks(folderPath)
+	if err != nil {
+		return "", os.ErrInvalid
 	}
 
 	return resolvedPath, nil
