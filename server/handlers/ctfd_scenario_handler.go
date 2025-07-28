@@ -33,6 +33,14 @@ func GetScenario(c *gin.Context) {
 		}
 
 		filePath := filepath.Join(scenarioPath, files[0].Name())
+
+		// Get file creation time
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+
 		file, err := os.Open(filePath)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
@@ -51,6 +59,7 @@ func GetScenario(c *gin.Context) {
 			"scenarioID":   scenarioID,
 			"scenarioName": files[0].Name(),
 			"scenarioFile": encoded,
+			"createdAt":    fileInfo.ModTime().Format(config.TimestampFormat),
 		})
 	} else {
 		scenarios, err := os.ReadDir(config.ScenarioFolder)
@@ -68,9 +77,17 @@ func GetScenario(c *gin.Context) {
 					continue // Skip folders with no files or read errors
 				}
 
+				// Get file creation time
+				filePath := filepath.Join(scenarioPath, files[0].Name())
+				fileInfo, err := os.Stat(filePath)
+				if err != nil {
+					continue // Skip files we can't stat
+				}
+
 				scenarioList = append(scenarioList, gin.H{
 					"scenarioID":   scenario.Name(),
-					"scenarioName": files[0].Name(), // Changed: now returns the file name instead of folder name
+					"scenarioName": files[0].Name(),
+					"createdAt":    fileInfo.ModTime().Format(config.TimestampFormat),
 				})
 			}
 		}

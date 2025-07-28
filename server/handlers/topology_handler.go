@@ -33,6 +33,14 @@ func GetTopology(c *gin.Context) {
 		}
 
 		filePath := filepath.Join(topologyPath, files[0].Name())
+
+		// Get file creation time
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+
 		file, err := os.Open(filePath)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
@@ -51,6 +59,7 @@ func GetTopology(c *gin.Context) {
 			"topologyId":   topologyId,
 			"topologyName": files[0].Name(),
 			"topologyFile": encoded,
+			"createdAt":    fileInfo.ModTime().Format(config.TimestampFormat),
 		})
 	} else {
 		topologies, err := os.ReadDir(config.TopologyConfigFolder)
@@ -62,9 +71,23 @@ func GetTopology(c *gin.Context) {
 		var topologyList []gin.H
 		for _, topology := range topologies {
 			if topology.IsDir() {
+				topologyPath := filepath.Join(config.TopologyConfigFolder, topology.Name())
+				files, err := os.ReadDir(topologyPath)
+				if err != nil || len(files) == 0 {
+					continue // Skip folders with no files or read errors
+				}
+
+				// Get file creation time
+				filePath := filepath.Join(topologyPath, files[0].Name())
+				fileInfo, err := os.Stat(filePath)
+				if err != nil {
+					continue // Skip files we can't stat
+				}
+
 				topologyList = append(topologyList, gin.H{
 					"topologyId":   topology.Name(),
-					"topologyName": topology.Name(),
+					"topologyName": files[0].Name(),
+					"createdAt":    fileInfo.ModTime().Format(config.TimestampFormat),
 				})
 			}
 		}

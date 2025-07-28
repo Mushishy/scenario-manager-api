@@ -23,7 +23,7 @@
                         }
                     }
                 },
-                "required": ["user", "password", "flags"],
+                "required": ["user", "password"],
                 "additionalProperties": false
             }
         }

@@ -45,6 +45,9 @@ paths:
                       scenarioFile:
                         type: string
                         description: base64-encoded file
+                      createdAt:
+                        type: string
+                        description: File creation timestamp
                   - type: array
                     items:
                       type: object
@@ -53,6 +56,9 @@ paths:
                           type: string
                         scenarioName:
                           type: string
+                        createdAt:
+                          type: string
+                          description: File creation timestamp
         '400':
           description: Bad Request
         '404':
@@ -120,6 +126,40 @@ paths:
       responses:
         '200':
           description: Data found
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      ctfdDataId:
+                        type: string
+                      ctfdData:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            user:
+                              type: string
+                            password:
+                              type: string
+                            team:
+                              type: string
+                            flags:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  variable:
+                                    type: string
+                                  contents:
+                                    type: string
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        ctfdDataId:
+                          type: string
         '400':
           description: Bad Request
         '404':
@@ -169,7 +209,6 @@ paths:
                     required:
                       - user
                       - password
-                      - flags
                     additionalProperties: false
               required:
                 - ctfd_data
@@ -242,6 +281,33 @@ paths:
       responses:
         '200':
           description: Topology found
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      topologyId:
+                        type: string
+                      topologyName:
+                        type: string
+                      topologyFile:
+                        type: string
+                        description: base64-encoded file
+                      createdAt:
+                        type: string
+                        description: File creation timestamp
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        topologyId:
+                          type: string
+                        topologyName:
+                          type: string
+                        createdAt:
+                          type: string
+                          description: File creation timestamp
         '400':
           description: Bad Request
         '404':

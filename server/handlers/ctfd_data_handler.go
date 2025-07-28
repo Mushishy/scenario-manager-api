@@ -4,6 +4,7 @@ import (
 	"dulus/server/config"
 	"dulus/server/utils"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,7 +32,11 @@ func GetCtfdData(c *gin.Context) {
 		filePath := filepath.Join(dataPath, "ctfd_data.json")
 		file, err := os.Open(filePath)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			if os.IsNotExist(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			}
 			return
 		}
 		defer file.Close()
@@ -47,7 +52,7 @@ func GetCtfdData(c *gin.Context) {
 			"ctfdData":   data["ctfd_data"],
 		})
 	} else {
-		// List all ctfdDataId
+		// List all ctfdDataId with their content
 		folders, err := os.ReadDir(config.CtfdDataFolder)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
@@ -57,8 +62,23 @@ func GetCtfdData(c *gin.Context) {
 		var dataList []gin.H
 		for _, folder := range folders {
 			if folder.IsDir() {
+				// Read the ctfd_data.json file for each folder
+				filePath := filepath.Join(config.CtfdDataFolder, folder.Name(), "ctfd_data.json")
+				file, err := os.Open(filePath)
+				if err != nil {
+					continue // Skip folders that don't have ctfd_data.json or can't be read
+				}
+
+				var data map[string]interface{}
+				if err := json.NewDecoder(file).Decode(&data); err != nil {
+					file.Close()
+					continue // Skip files that can't be decoded
+				}
+				file.Close()
+
 				dataList = append(dataList, gin.H{
 					"ctfdDataId": folder.Name(),
+					"ctfdData":   data["ctfd_data"],
 				})
 			}
 		}
@@ -122,14 +142,21 @@ func PutCtfdData(c *gin.Context) {
 		return
 	}
 
-	// Custom validation for 'team' field
+	// Custom validation for 'team' field and 'flags' field
 	ctfdData, ok := input["ctfd_data"].([]interface{})
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
+	// Validate team field consistency
 	if err := utils.ValidateTeamField(ctfdData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	// Validate flags field consistency - if one user has flags, all users must have flags
+	if err := validateFlagsConsistency(ctfdData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
@@ -149,7 +176,41 @@ func PutCtfdData(c *gin.Context) {
 	}
 
 	// Return success response
-	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully", "id": ctfdDataId})
+	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully"})
+}
+
+// validateFlagsConsistency ensures that if one user has flags set, all users must have flags set
+func validateFlagsConsistency(ctfdData []interface{}) error {
+	if len(ctfdData) == 0 {
+		return nil
+	}
+
+	var hasFlags *bool = nil
+
+	for _, item := range ctfdData {
+		user, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		flags, flagsExist := user["flags"]
+		userHasFlags := flagsExist && flags != nil
+
+		// If flags is an array, check if it's not empty
+		if userHasFlags {
+			if flagsArray, ok := flags.([]interface{}); ok {
+				userHasFlags = len(flagsArray) > 0
+			}
+		}
+
+		if hasFlags == nil {
+			hasFlags = &userHasFlags
+		} else if *hasFlags != userHasFlags {
+			return fmt.Errorf("inconsistent flags: if one user has flags, all users must have flags")
+		}
+	}
+
+	return nil
 }
 
 func DeleteCtfdData(c *gin.Context) {
