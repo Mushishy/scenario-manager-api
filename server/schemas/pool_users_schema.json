@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "usersAndTeams": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "user": { "type": "string" },
+                    "team": { "type": "string" }
+                },
+                "required": ["user"],
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": false
+}

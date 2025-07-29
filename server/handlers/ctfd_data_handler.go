@@ -8,10 +8,84 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/xeipuuv/gojsonschema"
 )
+
+func GetCtfdLogins(c *gin.Context) {
+	ctfdDataId := c.Query("ctfdDataId")
+	if ctfdDataId != "" {
+		// Validate the folder ID
+		dataPath, err := utils.ValidateFolderID(config.CtfdDataFolder, ctfdDataId)
+		switch err {
+		case os.ErrInvalid:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			return
+		case os.ErrNotExist:
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			return
+		}
+
+		// Read the ctfd_data.json file
+		filePath := filepath.Join(dataPath, "ctfd_data.json")
+		file, err := os.Open(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			}
+			return
+		}
+		defer file.Close()
+
+		var data map[string]interface{}
+		if err := json.NewDecoder(file).Decode(&data); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+
+		// Extract ctfd_data array
+		ctfdData, ok := data["ctfd_data"].([]interface{})
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+
+		// Build CSV string
+		var csvLines []string
+		for _, item := range ctfdData {
+			user, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			username, _ := user["user"].(string)
+			password, _ := user["password"].(string)
+			team, teamExists := user["team"].(string)
+
+			// Create CSV line: "username, password[, team]"
+			var csvLine string
+			if teamExists && team != "" {
+				csvLine = fmt.Sprintf("%s, %s, %s", username, password, team)
+			} else {
+				csvLine = fmt.Sprintf("%s, %s", username, password)
+			}
+			csvLines = append(csvLines, csvLine)
+		}
+
+		// Join all lines with newlines
+		csvOutput := strings.Join(csvLines, "\n")
+
+		// Return as plain text
+		c.Header("Content-Type", "text/plain")
+		c.String(http.StatusOK, csvOutput)
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+	}
+}
 
 func GetCtfdData(c *gin.Context) {
 	ctfdDataId := c.Query("ctfdDataId")
@@ -48,8 +122,7 @@ func GetCtfdData(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"ctfdDataId": ctfdDataId,
-			"ctfdData":   data["ctfd_data"],
+			"ctfdData": data["ctfd_data"],
 		})
 	} else {
 		// List all ctfdDataId with their content
@@ -176,7 +249,7 @@ func PutCtfdData(c *gin.Context) {
 	}
 
 	// Return success response
-	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully", "id": ctfdDataId})
 }
 
 // validateFlagsConsistency ensures that if one user has flags set, all users must have flags set

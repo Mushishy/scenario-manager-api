@@ -9,4 +9,5 @@ const (
 	TopologyConfigFolder = "data/topology_configs"
 	DatabaseLocation     = "data/input/ludus.db"
 	TimestampFormat      = "2006-01-02T15:04:05Z07:00"
+	PoolFolder           = "data/pool"
 )

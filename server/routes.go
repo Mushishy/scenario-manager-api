@@ -62,7 +62,7 @@ func RegisterRoutes(r *gin.Engine) {
 	// Add CORS middleware
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS, PATCH"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
@@ -80,6 +80,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// Data route
 	r.GET("/ctfd/data", validateAPIKey, handlers.GetCtfdData)
+	r.GET("/ctfd/data/logins", validateAPIKey, handlers.GetCtfdLogins)
 	r.PUT("/ctfd/data", validateAPIKey, handlers.PutCtfdData)
 	r.DELETE("/ctfd/data", validateAPIKey, handlers.DeleteCtfdData)
 
@@ -87,4 +88,13 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/topology", validateAPIKey, handlers.GetTopology)
 	r.PUT("/topology", validateAPIKey, handlers.PutTopology)
 	r.DELETE("/topology", validateAPIKey, handlers.DeleteTopology)
+
+	// Pool route
+	r.POST("/pool", validateAPIKey, handlers.PostPool)
+	r.PATCH("/pool/users", validateAPIKey, handlers.PatchPoolUsers)
+	r.PATCH("/pool/topology", validateAPIKey, handlers.PatchPoolTopology)
+	r.PATCH("/pool/ctfd", validateAPIKey, handlers.PatchPoolCtfdData)
+	r.PATCH("/pool/note", validateAPIKey, handlers.PatchPoolNote)
+	r.GET("/pool", validateAPIKey, handlers.GetPool)
+	r.DELETE("/pool", validateAPIKey, handlers.DeletePool)
 }

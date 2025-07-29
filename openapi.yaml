@@ -268,6 +268,50 @@ paths:
       security:
         - ApiKeyAuth: []
 
+  /ctfd/data/logins:
+    get:
+      summary: Get CTFd logins
+      description: Retrieve user login information in CSV format for a specific CTFd data ID or all available data.
+      parameters:
+        - in: query
+          name: ctfdDataId
+          schema:
+            type: string
+          required: false
+          description: Data ID to retrieve logins for. If not provided, retrieves logins for all data.
+      responses:
+        '200':
+          description: Logins retrieved successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  user1, password1, team1
+                  user2, password2, team2
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+      security:
+        - ApiKeyAuth: []
+
   /topology:
     get:
       summary: Get topology
@@ -358,5 +402,522 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
+      security:
+        - ApiKeyAuth: []
+
+  /pool:
+    post:
+      summary: Create a new pool
+      description: Create a new pool with topology, CTFd data, and user configuration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                createdBy:
+                  type: string
+                type:
+                  type: string
+                  enum: ["CTFD", "SHARED", "INDIVIDUAL"]
+                mainUser:
+                  type: string
+                  description: Required for SHARED or INDIVIDUAL types
+                usersAndTeams:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      user:
+                        type: string
+                      team:
+                        type: string
+                    required:
+                      - user
+                topologyId:
+                  type: string
+                ctfdDataId:
+                  type: string
+                note:
+                  type: string
+                  maxLength: 15
+              required:
+                - createdBy
+                - type
+                - topologyId
+                - ctfdDataId
+      responses:
+        '200':
+          description: Pool created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Uploaded successfully"
+                  id:
+                    type: string
+                    example: "ABC123"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+      security:
+        - ApiKeyAuth: []
+    get:
+      summary: Get pool(s)
+      description: Get a specific pool by ID or list all pools.
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: false
+          description: Pool ID
+        - in: query
+          name: users
+          schema:
+            type: string
+          required: false
+          description: Set to "true" to return only users for the specified pool
+      responses:
+        '200':
+          description: Pool(s) found
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Single pool (full data)
+                    properties:
+                      poolId:
+                        type: string
+                      createdBy:
+                        type: string
+                      type:
+                        type: string
+                      mainUser:
+                        type: string
+                      usersAndTeams:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            user:
+                              type: string
+                            team:
+                              type: string
+                      topologyId:
+                        type: string
+                      ctfdDataId:
+                        type: string
+                      note:
+                        type: string
+                  - type: object
+                    description: Single pool (users only)
+                    properties:
+                      poolId:
+                        type: string
+                      usersAndTeams:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            user:
+                              type: string
+                            team:
+                              type: string
+                  - type: array
+                    description: List of pools (without mainUser and usersAndTeams)
+                    items:
+                      type: object
+                      properties:
+                        poolId:
+                          type: string
+                        createdBy:
+                          type: string
+                        type:
+                          type: string
+                        topologyId:
+                          type: string
+                        ctfdDataId:
+                          type: string
+                        note:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+      security:
+        - ApiKeyAuth: []
+    delete:
+      summary: Delete a pool
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      responses:
+        '204':
+          description: Pool deleted successfully
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+      security:
+        - ApiKeyAuth: []
+
+  /pool/users:
+    patch:
+      summary: Update pool users
+      description: Update the users and teams for a specific pool.
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usersAndTeams:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      user:
+                        type: string
+                      team:
+                        type: string
+                    required:
+                      - user
+      responses:
+        '200':
+          description: Pool users updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+      security:
+        - ApiKeyAuth: []
+
+  /pool/topology:
+    patch:
+      summary: Update pool topology
+      description: Update the topology ID for a specific pool.
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topologyId:
+                  type: string
+              required:
+                - topologyId
+      responses:
+        '200':
+          description: Pool topology updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+      security:
+        - ApiKeyAuth: []
+
+  /pool/ctfd:
+    patch:
+      summary: Update pool CTFd data
+      description: Update the CTFd data ID for a specific pool.
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ctfdDataId:
+                  type: string
+              required:
+                - ctfdDataId
+      responses:
+        '200':
+          description: Pool CTFd data updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+      security:
+        - ApiKeyAuth: []
+
+  /pool/note:
+    patch:
+      summary: Update pool note
+      description: Update the note for a specific pool.
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 15
+              required:
+                - note
+      responses:
+        '200':
+          description: Pool note updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
       security:
         - ApiKeyAuth: []
