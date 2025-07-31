@@ -5,7 +5,7 @@ info:
   description: API for managing scenarios, data, and topology in Ludus CTFd extension.
 
 servers:
-  - url: http://localhost:5000
+  - url: http://192.168.1.23:5000
 
 components:
   securitySchemes:
@@ -18,6 +18,619 @@ security:
   - ApiKeyAuth: []
 
 paths:
+  /range/access:
+    post:
+      summary: Get range access configs
+      description: Get WireGuard configuration files for multiple users as a ZIP archive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: ZIP file containing WireGuard configuration files
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: attachment; filename=wireguard-configs.zip
+        '400':
+          description: Bad Request
+        '404':
+          description: No configs found
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/share:
+    post:
+      summary: Share range
+      description: Share ranges from multiple users to a target user
+      parameters:
+        - in: query
+          name: targetId
+          schema:
+            type: string
+          required: true
+          description: Target user ID to share ranges with
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range sharing completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/unshare:
+    post:
+      summary: Unshare range
+      description: Unshare ranges from multiple users to a target user
+      parameters:
+        - in: query
+          name: targetId
+          schema:
+            type: string
+          required: true
+          description: Target user ID to unshare ranges from
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range unsharing completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/shared:
+    get:
+      summary: Get shared ranges
+      description: Get all shared range information
+      responses:
+        '200':
+          description: Shared ranges retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shared_ranges:
+                    type: object
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/deploy:
+    post:
+      summary: Deploy range
+      description: Deploy ranges for multiple users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range deployment completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/status:
+    post:
+      summary: Check range status
+      description: Check deployment status for multiple users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range status check completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        state:
+                          type: string
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/redeploy:
+    post:
+      summary: Redeploy range
+      description: Redeploy ranges for multiple users based on current state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range redeploy completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        action:
+                          type: string
+                        message:
+                          type: string
+                        state:
+                          type: string
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/abort:
+    post:
+      summary: Abort range
+      description: Abort range deployment for multiple users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range abort completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/remove:
+    post:
+      summary: Remove range
+      description: Remove ranges for multiple users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range removal completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /range/config:
+    put:
+      summary: Set range config
+      description: Set range configuration for multiple users using a topology
+      parameters:
+        - in: query
+          name: topologyId
+          schema:
+            type: string
+          required: true
+          description: Topology ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range config set completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+    post:
+      summary: Retrieve range config
+      description: Retrieve range configuration for multiple users and check if all configurations are the same
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Range config retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        config:
+                          type: object
+                        error:
+                          type: string
+                  allSame:
+                    type: boolean
+                    description: Indicates if all user configurations are identical
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /users/import:
+    post:
+      summary: Import users
+      description: Import multiple users into the Ludus system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Users import completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /users/delete:
+    post:
+      summary: Delete users
+      description: Delete multiple users from the Ludus system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: Users deletion completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user:
+                          type: string
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
+  /users/check:
+    post:
+      summary: Check users
+      description: Check if users exist in the Ludus system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHalicedan", "BATCHbobdylan"]
+              required:
+                - userIds
+      responses:
+        '200':
+          description: User check completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user:
+                          type: string
+                        exists:
+                          type: boolean
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      security:
+        - ApiKeyAuth: []
+
   /ctfd/scenario:
     get:
       summary: Get scenario(s)

@@ -49,17 +49,19 @@ func PostPool(c *gin.Context) {
 		return
 	}
 
-	// Validate CtfdDataId
-	if _, err := utils.ValidateFolderID(config.CtfdDataFolder, input["ctfdDataId"].(string)); err != nil {
-		switch err {
-		case os.ErrInvalid:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		case os.ErrNotExist:
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+	if ctfdDataId, ok := input["ctfdDataId"].(string); ok && ctfdDataId != "" {
+		// Validate CtfdDataId
+		if _, err := utils.ValidateFolderID(config.CtfdDataFolder, ctfdDataId); err != nil {
+			switch err {
+			case os.ErrInvalid:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			case os.ErrNotExist:
+				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			}
+			return
 		}
-		return
 	}
 
 	// Validate UsersAndTeams if provided

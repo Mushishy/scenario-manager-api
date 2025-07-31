@@ -97,4 +97,26 @@ func RegisterRoutes(r *gin.Engine) {
 	r.PATCH("/pool/note", validateAPIKey, handlers.PatchPoolNote)
 	r.GET("/pool", validateAPIKey, handlers.GetPool)
 	r.DELETE("/pool", validateAPIKey, handlers.DeletePool)
+
+	// User management endpoints
+	r.POST("/users/import", validateAPIKey, handlers.ImportUsers)
+	r.POST("/users/delete", validateAPIKey, handlers.DeleteUsers)
+	r.POST("/users/check", validateAPIKey, handlers.CheckUsers)
+
+	// Range config
+	r.PUT("/range/config", validateAPIKey, handlers.SetRangeConfig)
+	r.POST("/range/config", validateAPIKey, handlers.GetRangeConfig)
+
+	// Range deployment
+	r.POST("/range/deploy", validateAPIKey, handlers.DeployRange)
+	r.POST("/range/status", validateAPIKey, handlers.CheckRangeStatus)
+	r.POST("/range/redeploy", validateAPIKey, handlers.RedeployRange)
+	r.POST("/range/abort", validateAPIKey, handlers.AbortRange)
+	r.POST("/range/remove", validateAPIKey, handlers.RemoveRange)
+
+	// Range sharing
+	r.POST("/range/access", validateAPIKey, handlers.GetRangeAccess)
+	r.POST("/range/share", validateAPIKey, handlers.ShareRange)
+	r.POST("/range/unshare", validateAPIKey, handlers.UnshareRange)
+	r.GET("/range/shared", validateAPIKey, handlers.GetSharedRanges)
 }
