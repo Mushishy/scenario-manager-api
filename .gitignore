@@ -5,3 +5,4 @@ setup
 /server/data/ctfd_scenarios/*
 /server/data/topology_configs/*
 /server/data/input/*
+/server/data/pool/*

@@ -1,6 +1,40 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
+
+// Helper function to generate userId from user name
+func generateUserId(user string) string {
+	// Remove spaces, convert to lowercase, and add BATCH prefix
+	userId := strings.ToLower(strings.ReplaceAll(user, " ", ""))
+	return "BATCH" + userId
+}
+
+// Helper function to process usersAndTeams and add userId
+func ProcessUsersAndTeams(usersAndTeams []interface{}) []interface{} {
+	var processed []interface{}
+
+	for _, item := range usersAndTeams {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			// Create a copy of the item
+			newItem := make(map[string]interface{})
+			for k, v := range itemMap {
+				newItem[k] = v
+			}
+
+			// Add userId based on user field
+			if user, exists := itemMap["user"].(string); exists {
+				newItem["userId"] = generateUserId(user)
+			}
+
+			processed = append(processed, newItem)
+		}
+	}
+
+	return processed
+}
 
 func ValidateTeamField(ctfdData []interface{}) error {
 	teamSet := false

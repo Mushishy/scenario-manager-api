@@ -13,15 +13,28 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+  
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Error message"
+      required:
+        - error
 
 security:
   - ApiKeyAuth: []
 
 paths:
-  /range/access:
+  # Pool
+  /pool:
     post:
-      summary: Get range access configs
-      description: Get WireGuard configuration files for multiple users as a ZIP archive
+      summary: Create a new pool
+      description: Create a new pool with topology, users, and optional CTFd data
+      tags:
+        - Pool
       requestBody:
         required: true
         content:
@@ -29,16 +42,675 @@ paths:
             schema:
               type: object
               properties:
-                userIds:
+                createdBy:
+                  type: string
+                  example: "admin"
+                type:
+                  type: string
+                  enum: ["CTFD", "SHARED", "INDIVIDUAL"]  # Fixed: was ["SHARED", "INDIVIDUAL", "TEAM"]
+                  example: "SHARED"
+                topologyId:
+                  type: string
+                  example: "XYZ789"  # Removed pattern - your code doesn't validate this
+                ctfdDataId:
+                  type: string
+                  nullable: true
+                  example: "DEF456"  # Removed pattern - your code doesn't validate this
+                mainUser:
+                  type: string
+                  example: "instructor1"
+                  description: "Required for SHARED or INDIVIDUAL types"
+                usersAndTeams:
                   type: array
                   items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
+                    type: object
+                    properties:
+                      user:
+                        type: string
+                        example: "Alice Dan Mayers"
+                      team:
+                        type: string
+                        example: "Red Team"
+                    required:
+                      - user
+                    additionalProperties: false
+                note:
+                  type: string
+                  maxLength: 15
+                  example: "Training session"
               required:
-                - userIds
+                - createdBy  # Fixed: was "name"
+                - type
+                - topologyId
+                - note  # Added: this is required in your schema
+              additionalProperties: false
       responses:
         '200':
-          description: ZIP file containing WireGuard configuration files
+          description: Pool created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Uploaded successfully"
+                  id:
+                    type: string
+                    example: "ABC123"  # Fixed: uses generated ID format
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Topology or CTFd data not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Get pools
+      description: Get a specific pool or list all pools
+      tags:
+        - Pool
+      parameters:
+        - name: poolId
+          in: query
+          schema:
+            type: string
+          description: ID of the pool to retrieve
+          example: "ABC123"
+        - name: userIds
+          in: query
+          schema:
+            type: boolean
+          description: If set to "true", returns only userIds for the specified pool
+          example: "true"
+      responses:
+        '200':
+          description: Pool data or list of pools
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Single pool (full data)
+                    properties:
+                      poolId:
+                        type: string
+                        example: "ABC123"
+                      createdBy:  # Fixed: was "name"
+                        type: string
+                        example: "admin"
+                      type:
+                        type: string
+                        enum: ["CTFD", "SHARED", "INDIVIDUAL"]
+                        example: "SHARED"
+                      topologyId:
+                        type: string
+                        example: "XYZ789"
+                      ctfdDataId:
+                        type: string
+                        nullable: true
+                        example: "DEF456"
+                      mainUser:
+                        type: string
+                        example: "instructor1"
+                      usersAndTeams:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            user:
+                              type: string
+                              example: "Alice Dan Mayers"
+                            userId:
+                              type: string
+                              example: "BATCHalicedanmayers"
+                            team:
+                              type: string
+                              example: "Red Team"
+                      note:
+                        type: string
+                        maxLength: 15
+                        example: "Training session"
+                  - type: object
+                    description: Single pool (userIds only)
+                    properties:
+                      poolId:
+                        type: string
+                        example: "ABC123"
+                      userIds:
+                        type: array
+                        items:
+                          type: string
+                        example: ["BATCHalicedanmayers", "BATCHbobsmith"]
+                  - type: array
+                    description: List of all pools (mainUser and usersAndTeams removed)
+                    items:
+                      type: object
+                      properties:
+                        poolId:
+                          type: string
+                          example: "ABC123"
+                        createdBy:  # Fixed: was "name"
+                          type: string
+                          example: "admin"
+                        type:
+                          type: string
+                          enum: ["CTFD", "SHARED", "INDIVIDUAL"]
+                          example: "SHARED"
+                        topologyId:
+                          type: string
+                          example: "XYZ789"
+                        ctfdDataId:
+                          type: string
+                          nullable: true
+                          example: "DEF456"
+                        note:
+                          type: string
+                          maxLength: 15
+                          example: "Training session"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete a pool
+      description: Delete a specific pool and all its data
+      tags:
+        - Pool
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID of the pool to delete
+          example: "ABC123"
+      responses:
+        '204':
+          description: Pool deleted successfully
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /pool/users:
+    patch:
+      summary: Update pool users
+      description: Update the users and teams for a specific pool.
+      tags:
+        - Pool
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usersAndTeams:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      user:
+                        type: string
+                      team:
+                        type: string
+                    required:
+                      - user
+      responses:
+        '200':
+          description: Pool users updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+
+  /pool/topology:
+    patch:
+      summary: Update pool topology
+      description: Update the topology ID for a specific pool.
+      tags:
+        - Pool
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topologyId:
+                  type: string
+                  pattern: "^[a-zA-Z0-9]{6}$"
+              required:
+                - topologyId
+      responses:
+        '200':
+          description: Pool topology updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+
+  /pool/ctfd:
+    patch:
+      summary: Update pool CTFd data
+      description: Update the CTFd data ID for a specific pool.
+      tags:
+        - Pool
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ctfdDataId:
+                  type: string
+                  pattern: "^[a-zA-Z0-9]{6}$"
+              required:
+                - ctfdDataId
+      responses:
+        '200':
+          description: Pool CTFd data updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+
+  /pool/note:
+    patch:
+      summary: Update pool note
+      description: Update the note for a specific pool.
+      tags:
+        - Pool
+      parameters:
+        - in: query
+          name: poolId
+          schema:
+            type: string
+          required: true
+          description: Pool ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 15
+              required:
+                - note
+      responses:
+        '200':
+          description: Pool note updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated successfully"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+
+  # User Management Endpoints
+  /users/import:
+    post:
+      summary: Import users from pool
+      description: Import all users from a pool into Ludus
+      tags:
+        - User Management
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Import results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/delete:
+    post:
+      summary: Delete users from pool
+      description: Delete all users from a pool in Ludus
+      tags:
+        - User Management
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Delete results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/check:
+    get:
+      summary: Check users from pool
+      description: Check if all users from a pool exist in Ludus
+      tags:
+        - User Management
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Check results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        exists:
+                          type: boolean
+                          example: true
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  # Range Sharing Endpoints
+  /range/access:
+    get:
+      summary: Get WireGuard access configs for pool users
+      description: Download WireGuard configuration files for all users in a pool as a ZIP file
+      tags:
+        - Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: ZIP file containing WireGuard configurations
           content:
             application/zip:
               schema:
@@ -48,44 +720,51 @@ paths:
             Content-Disposition:
               schema:
                 type: string
-              description: attachment; filename=wireguard-configs.zip
+                example: 'attachment; filename=wireguard-configs.zip'
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: No configs found
+          description: Pool or configs not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /range/share:
     post:
-      summary: Share range
-      description: Share ranges from multiple users to a target user
+      summary: Share range access for pool users
+      description: Grant range access from all users in a pool to a target user
+      tags:
+        - Range Sharing
       parameters:
-        - in: query
-          name: targetId
+        - name: poolId
+          in: query
+          required: true
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+        - name: targetId
+          in: query
           required: true
-          description: Target user ID to share ranges with
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+          schema:
+            type: string
+          description: Target user ID to grant access to
+          example: "instructor1"
       responses:
         '200':
-          description: Range sharing completed
+          description: Share results
           content:
             application/json:
               schema:
@@ -98,45 +777,49 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
                         response:
                           type: object
                         error:
                           type: string
         '400':
           description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /range/unshare:
     post:
-      summary: Unshare range
-      description: Unshare ranges from multiple users to a target user
+      summary: Unshare range access for pool users
+      description: Revoke range access from all users in a pool to a target user
+      tags:
+        - Range Sharing
       parameters:
-        - in: query
-          name: targetId
+        - name: poolId
+          in: query
+          required: true
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+        - name: targetId
+          in: query
           required: true
-          description: Target user ID to unshare ranges from
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+          schema:
+            type: string
+          description: Target user ID to revoke access from
+          example: "instructor1"
       responses:
         '200':
-          description: Range unsharing completed
+          description: Unshare results
           content:
             application/json:
               schema:
@@ -149,57 +832,43 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
                         response:
                           type: object
                         error:
                           type: string
         '400':
           description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
-
-  /range/shared:
-    get:
-      summary: Get shared ranges
-      description: Get all shared range information
-      responses:
-        '200':
-          description: Shared ranges retrieved
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  shared_ranges:
-                    type: object
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
+  # Range Deployment Endpoints
   /range/deploy:
     post:
-      summary: Deploy range
-      description: Deploy ranges for multiple users
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+      summary: Deploy range for pool users
+      description: Deploy range infrastructure for all users in a pool
+      tags:
+        - Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
         '200':
-          description: Range deployment completed
+          description: Deployment results
           content:
             application/json:
               schema:
@@ -212,38 +881,42 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
                         response:
                           type: object
                         error:
                           type: string
         '400':
           description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /range/status:
-    post:
-      summary: Check range status
-      description: Check deployment status for multiple users
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+    get:
+      summary: Check range status for pool users
+      description: Get current range status for all users in a pool
+      tags:
+        - Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
         '200':
-          description: Range status check completed
+          description: Status check results
           content:
             application/json:
               schema:
@@ -256,38 +929,43 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
                         state:
                           type: string
+                          example: "DEPLOYED"
                         error:
                           type: string
         '400':
           description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /range/redeploy:
     post:
-      summary: Redeploy range
-      description: Redeploy ranges for multiple users based on current state
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+      summary: Redeploy range for pool users
+      description: Redeploy range infrastructure for all users in a pool based on current state
+      tags:
+        - Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
         '200':
-          description: Range redeploy completed
+          description: Redeployment results
           content:
             application/json:
               schema:
@@ -300,42 +978,45 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
                         action:
                           type: string
+                          example: "redeployed"
                         message:
                           type: string
                         state:
                           type: string
-                        error:
-                          type: string
         '400':
           description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /range/abort:
     post:
-      summary: Abort range
-      description: Abort range deployment for multiple users
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+      summary: Abort range deployment for pool users
+      description: Abort ongoing range deployment for all users in a pool
+      tags:
+        - Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
         '200':
-          description: Range abort completed
+          description: Abort results
           content:
             application/json:
               schema:
@@ -348,89 +1029,42 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
                         response:
                           type: object
                         error:
                           type: string
         '400':
           description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /range/remove:
     post:
-      summary: Remove range
-      description: Remove ranges for multiple users
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
-      responses:
-        '200':
-          description: Range removal completed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
-
-  /range/config:
-    put:
-      summary: Set range config
-      description: Set range configuration for multiple users using a topology
+      summary: Remove range for pool users
+      description: Remove range infrastructure for all users in a pool
+      tags:
+        - Range Deployment
       parameters:
-        - in: query
-          name: topologyId
+        - name: poolId
+          in: query
+          required: true
           schema:
             type: string
-          required: true
-          description: Topology ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
         '200':
-          description: Range config set completed
+          description: Removal results
           content:
             application/json:
               schema:
@@ -443,38 +1077,51 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
                         response:
                           type: object
                         error:
                           type: string
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: Not Found
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
-    post:
-      summary: Retrieve range config
-      description: Retrieve range configuration for multiple users and check if all configurations are the same
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Range Config Endpoints
+  /range/config:
+    put:
+      summary: Set range configuration for pool users
+      description: Upload topology configuration to all users in a pool
+      tags:
+        - Range Config
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+        - name: topologyId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Topology ID to upload
+          example: "XYZ789"
       responses:
         '200':
-          description: Range config retrieved
+          description: Configuration upload results
           content:
             application/json:
               schema:
@@ -487,154 +1134,87 @@ paths:
                       properties:
                         userId:
                           type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool or Topology Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Get range configuration for pool users
+      description: Retrieve current range configuration from all users in a pool
+      tags:
+        - Range Config
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Configuration retrieval results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
                         config:
                           type: object
                         error:
                           type: string
                   allSame:
                     type: boolean
-                    description: Indicates if all user configurations are identical
+                    description: Whether all user configurations are identical
         '400':
           description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
-
-  /users/import:
-    post:
-      summary: Import users
-      description: Import multiple users into the Ludus system
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
-      responses:
-        '200':
-          description: Users import completed
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        user:
-                          type: string
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
-
-  /users/delete:
-    post:
-      summary: Delete users
-      description: Delete multiple users from the Ludus system
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
-      responses:
-        '200':
-          description: Users deletion completed
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        user:
-                          type: string
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
+                $ref: '#/components/schemas/Error'
 
-  /users/check:
-    post:
-      summary: Check users
-      description: Check if users exist in the Ludus system
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  items:
-                    type: string
-                  example: ["BATCHalicedan", "BATCHbobdylan"]
-              required:
-                - userIds
-      responses:
-        '200':
-          description: User check completed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        user:
-                          type: string
-                        exists:
-                          type: boolean
-        '400':
-          description: Bad Request
-        '500':
-          description: Internal Server Error
-      security:
-        - ApiKeyAuth: []
-
+  # Ctfd
   /ctfd/scenario:
     get:
       summary: Get scenario(s)
       description: Get a scenario by ID (as base64) or list all scenarios.
+      tags:
+        - CTFd
       parameters:
         - in: query
           name: scenarioID
@@ -642,6 +1222,7 @@ paths:
             type: string
           required: false
           description: Scenario ID
+          example: "GHI123"
       responses:
         '200':
           description: Scenario(s) found
@@ -653,6 +1234,7 @@ paths:
                     properties:
                       scenarioID:
                         type: string
+                        pattern: "^[a-zA-Z0-9]{6}$"
                       scenarioName:
                         type: string
                       scenarioFile:
@@ -667,6 +1249,7 @@ paths:
                       properties:
                         scenarioID:
                           type: string
+                          pattern: "^[a-zA-Z0-9]{6}$"
                         scenarioName:
                           type: string
                         createdAt:
@@ -676,16 +1259,18 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
+
     put:
       summary: Create or update a scenario
       description: Upload a .zip file to create or update a scenario.
+      tags:
+        - CTFd
       parameters:
         - in: query
           name: scenarioID
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
           required: false
           description: Scenario ID (if updating)
       requestBody:
@@ -705,15 +1290,17 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
+
     delete:
       summary: Delete a scenario
+      tags:
+        - CTFd
       parameters:
         - in: query
           name: scenarioID
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
           required: true
           description: Scenario ID
       responses:
@@ -723,12 +1310,12 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
 
   /ctfd/data:
     get:
       summary: Get data
+      tags:
+        - CTFd
       parameters:
         - in: query
           name: ctfdDataId
@@ -736,6 +1323,7 @@ paths:
             type: string
           required: false
           description: Data ID
+          example: "DEF456"
       responses:
         '200':
           description: Data found
@@ -747,6 +1335,7 @@ paths:
                     properties:
                       ctfdDataId:
                         type: string
+                        pattern: "^[a-zA-Z0-9]{6}$"
                       ctfdData:
                         type: array
                         items:
@@ -773,19 +1362,22 @@ paths:
                       properties:
                         ctfdDataId:
                           type: string
+                          pattern: "^[a-zA-Z0-9]{6}$"
         '400':
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
+
     put:
       summary: Create or update data
+      tags:
+        - CTFd
       parameters:
         - in: query
           name: ctfdDataId
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
           required: false
           description: Data ID (if updating)
       requestBody:
@@ -860,15 +1452,17 @@ paths:
                   error:
                     type: string
                     example: "Not Found"
-      security:
-        - ApiKeyAuth: []
+
     delete:
       summary: Delete data
+      tags:
+        - CTFd
       parameters:
         - in: query
           name: ctfdDataId
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
           required: true
           description: Data ID
       responses:
@@ -878,18 +1472,19 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
 
   /ctfd/data/logins:
     get:
       summary: Get CTFd logins
       description: Retrieve user login information in CSV format for a specific CTFd data ID or all available data.
+      tags:
+        - CTFd
       parameters:
         - in: query
           name: ctfdDataId
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
           required: false
           description: Data ID to retrieve logins for. If not provided, retrieves logins for all data.
       responses:
@@ -922,12 +1517,13 @@ paths:
                   error:
                     type: string
                     example: "Not Found"
-      security:
-        - ApiKeyAuth: []
-
+  
+  # Topology
   /topology:
     get:
       summary: Get topology
+      tags:
+        - Topology
       parameters:
         - in: query
           name: topologyId
@@ -935,6 +1531,7 @@ paths:
             type: string
           required: false
           description: Topology ID
+          example: "XYZ789"
       responses:
         '200':
           description: Topology found
@@ -946,6 +1543,7 @@ paths:
                     properties:
                       topologyId:
                         type: string
+                        pattern: "^[a-zA-Z0-9]{6}$"
                       topologyName:
                         type: string
                       topologyFile:
@@ -960,6 +1558,7 @@ paths:
                       properties:
                         topologyId:
                           type: string
+                          pattern: "^[a-zA-Z0-9]{6}$"
                         topologyName:
                           type: string
                         createdAt:
@@ -969,10 +1568,11 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
+
     put:
       summary: Create or update topology
+      tags:
+        - Topology
       parameters:
         - in: query
           name: topologyId
@@ -997,10 +1597,11 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
+
     delete:
       summary: Delete topology
+      tags:
+        - Topology
       parameters:
         - in: query
           name: topologyId
@@ -1015,522 +1616,3 @@ paths:
           description: Bad Request
         '404':
           description: Not Found
-      security:
-        - ApiKeyAuth: []
-
-  /pool:
-    post:
-      summary: Create a new pool
-      description: Create a new pool with topology, CTFd data, and user configuration.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                createdBy:
-                  type: string
-                type:
-                  type: string
-                  enum: ["CTFD", "SHARED", "INDIVIDUAL"]
-                mainUser:
-                  type: string
-                  description: Required for SHARED or INDIVIDUAL types
-                usersAndTeams:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      user:
-                        type: string
-                      team:
-                        type: string
-                    required:
-                      - user
-                topologyId:
-                  type: string
-                ctfdDataId:
-                  type: string
-                note:
-                  type: string
-                  maxLength: 15
-              required:
-                - createdBy
-                - type
-                - topologyId
-                - ctfdDataId
-      responses:
-        '200':
-          description: Pool created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Uploaded successfully"
-                  id:
-                    type: string
-                    example: "ABC123"
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-      security:
-        - ApiKeyAuth: []
-    get:
-      summary: Get pool(s)
-      description: Get a specific pool by ID or list all pools.
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: false
-          description: Pool ID
-        - in: query
-          name: users
-          schema:
-            type: string
-          required: false
-          description: Set to "true" to return only users for the specified pool
-      responses:
-        '200':
-          description: Pool(s) found
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - type: object
-                    description: Single pool (full data)
-                    properties:
-                      poolId:
-                        type: string
-                      createdBy:
-                        type: string
-                      type:
-                        type: string
-                      mainUser:
-                        type: string
-                      usersAndTeams:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            user:
-                              type: string
-                            team:
-                              type: string
-                      topologyId:
-                        type: string
-                      ctfdDataId:
-                        type: string
-                      note:
-                        type: string
-                  - type: object
-                    description: Single pool (users only)
-                    properties:
-                      poolId:
-                        type: string
-                      usersAndTeams:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            user:
-                              type: string
-                            team:
-                              type: string
-                  - type: array
-                    description: List of pools (without mainUser and usersAndTeams)
-                    items:
-                      type: object
-                      properties:
-                        poolId:
-                          type: string
-                        createdBy:
-                          type: string
-                        type:
-                          type: string
-                        topologyId:
-                          type: string
-                        ctfdDataId:
-                          type: string
-                        note:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-      security:
-        - ApiKeyAuth: []
-    delete:
-      summary: Delete a pool
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: true
-          description: Pool ID
-      responses:
-        '204':
-          description: Pool deleted successfully
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-      security:
-        - ApiKeyAuth: []
-
-  /pool/users:
-    patch:
-      summary: Update pool users
-      description: Update the users and teams for a specific pool.
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: true
-          description: Pool ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                usersAndTeams:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      user:
-                        type: string
-                      team:
-                        type: string
-                    required:
-                      - user
-      responses:
-        '200':
-          description: Pool users updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Updated successfully"
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-      security:
-        - ApiKeyAuth: []
-
-  /pool/topology:
-    patch:
-      summary: Update pool topology
-      description: Update the topology ID for a specific pool.
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: true
-          description: Pool ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                topologyId:
-                  type: string
-              required:
-                - topologyId
-      responses:
-        '200':
-          description: Pool topology updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Updated successfully"
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-      security:
-        - ApiKeyAuth: []
-
-  /pool/ctfd:
-    patch:
-      summary: Update pool CTFd data
-      description: Update the CTFd data ID for a specific pool.
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: true
-          description: Pool ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ctfdDataId:
-                  type: string
-              required:
-                - ctfdDataId
-      responses:
-        '200':
-          description: Pool CTFd data updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Updated successfully"
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-      security:
-        - ApiKeyAuth: []
-
-  /pool/note:
-    patch:
-      summary: Update pool note
-      description: Update the note for a specific pool.
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: true
-          description: Pool ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                note:
-                  type: string
-                  maxLength: 15
-              required:
-                - note
-      responses:
-        '200':
-          description: Pool note updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Updated successfully"
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-      security:
-        - ApiKeyAuth: []

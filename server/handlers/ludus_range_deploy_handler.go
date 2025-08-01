@@ -6,30 +6,22 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xeipuuv/gojsonschema"
 )
 
 func DeployRange(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -37,8 +29,8 @@ func DeployRange(c *gin.Context) {
 	payload := gin.H{"tags": "all", "force": true}
 
 	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	requests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
 			Method:  "POST",
 			URL:     config.LudusUrl + "/range/deploy/?userID=" + userID,
@@ -64,34 +56,27 @@ func DeployRange(c *gin.Context) {
 }
 
 func CheckRangeStatus(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	requests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
 			Method:  "GET",
 			URL:     config.LudusUrl + "/range/?userID=" + userID,
@@ -123,34 +108,27 @@ func CheckRangeStatus(c *gin.Context) {
 }
 
 func RedeployRange(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// First, get current states for all users
-	checkRequests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	checkRequests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		checkRequests[i] = utils.LudusRequest{
 			Method:  "GET",
 			URL:     config.LudusUrl + "/range/?userID=" + userID,
@@ -197,34 +175,27 @@ func RedeployRange(c *gin.Context) {
 }
 
 func AbortRange(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	requests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
 			Method:  "POST",
 			URL:     config.LudusUrl + "/range/abort/?userID=" + userID,
@@ -250,34 +221,27 @@ func AbortRange(c *gin.Context) {
 }
 
 func RemoveRange(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	requests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
 			Method:  "DELETE",
 			URL:     config.LudusUrl + "/range/?userID=" + userID,

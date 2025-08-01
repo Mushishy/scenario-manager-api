@@ -36,6 +36,11 @@ func PostPool(c *gin.Context) {
 		return
 	}
 
+	// Set ctfdDataId to null if not provided
+	if _, exists := input["ctfdDataId"]; !exists {
+		input["ctfdDataId"] = nil
+	}
+
 	// Validate TopologyId
 	if _, err := utils.ValidateFolderID(config.TopologyConfigFolder, input["topologyId"].(string)); err != nil {
 		switch err {
@@ -64,12 +69,14 @@ func PostPool(c *gin.Context) {
 		}
 	}
 
-	// Validate UsersAndTeams if provided
+	// Process UsersAndTeams to add userId
 	if usersAndTeams, ok := input["usersAndTeams"].([]interface{}); ok && len(usersAndTeams) > 0 {
 		if err := utils.ValidateUsersAndTeams(usersAndTeams); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 			return
 		}
+		// Add userId to each user
+		input["usersAndTeams"] = utils.ProcessUsersAndTeams(usersAndTeams)
 	}
 
 	// If type is SHARED or INDIVIDUAL, MainUser is required
@@ -153,12 +160,14 @@ func PatchPoolUsers(c *gin.Context) {
 		return
 	}
 
-	// Validate UsersAndTeams if provided
+	// Process UsersAndTeams to add userId
 	if usersAndTeams, ok := input["usersAndTeams"].([]interface{}); ok && len(usersAndTeams) > 0 {
 		if err := utils.ValidateUsersAndTeams(usersAndTeams); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 			return
 		}
+		// Add userId to each user
+		input["usersAndTeams"] = utils.ProcessUsersAndTeams(usersAndTeams)
 	}
 
 	// Read existing pool data
@@ -176,7 +185,7 @@ func PatchPoolUsers(c *gin.Context) {
 		return
 	}
 
-	// Update usersAndTeams
+	// Update usersAndTeams (replace completely with new users)
 	poolData["usersAndTeams"] = input["usersAndTeams"]
 
 	// Save updated data
@@ -448,7 +457,7 @@ func PatchPoolNote(c *gin.Context) {
 
 func GetPool(c *gin.Context) {
 	poolId := c.Query("poolId")
-	users := c.Query("users")
+	userIds := c.Query("userIds")
 
 	if poolId != "" {
 		// Validate pool exists
@@ -481,13 +490,22 @@ func GetPool(c *gin.Context) {
 			return
 		}
 
-		if users == "true" {
-			// Return only users for the given pool
-			response := gin.H{
-				"poolId": poolId,
+		if userIds == "true" {
+			// Return only userIds for the given pool
+			var userIdList []string
+			if usersAndTeams, exists := poolData["usersAndTeams"].([]interface{}); exists {
+				for _, item := range usersAndTeams {
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						if userId, exists := itemMap["userId"].(string); exists {
+							userIdList = append(userIdList, userId)
+						}
+					}
+				}
 			}
-			if usersAndTeams, exists := poolData["usersAndTeams"]; exists {
-				response["usersAndTeams"] = usersAndTeams
+
+			response := gin.H{
+				"poolId":  poolId,
+				"userIds": userIdList,
 			}
 			c.JSON(http.StatusOK, response)
 		} else {

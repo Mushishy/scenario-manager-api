@@ -9,38 +9,30 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xeipuuv/gojsonschema"
 )
 
 func GetRangeAccess(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	requests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
 			Method:  "GET",
 			URL:     config.LudusUrl + "/user/wireguard?userID=" + userID,
@@ -92,7 +84,7 @@ func GetRangeAccess(c *gin.Context) {
 
 	if successCount == 0 {
 		zipWriter.Close() // Close even if no files
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "No configs found"})
 		return
 	}
 
@@ -113,25 +105,8 @@ func GetRangeAccess(c *gin.Context) {
 }
 
 func ShareRange(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
@@ -143,11 +118,21 @@ func ShareRange(c *gin.Context) {
 		return
 	}
 
+	userIds, err := utils.GetUserIdsFromPool(poolId)
+	if err != nil {
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	requests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		payload := gin.H{
 			"action":       "grant",
 			"targetUserID": targetId,
@@ -179,25 +164,8 @@ func ShareRange(c *gin.Context) {
 }
 
 func UnshareRange(c *gin.Context) {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://schemas/ludus_users_schema.json")
-
-	var input struct {
-		UserIds []string `json:"userIds"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	documentLoader := gojsonschema.NewGoLoader(input)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	if !result.Valid() {
+	poolId := c.Query("poolId")
+	if poolId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
@@ -209,11 +177,21 @@ func UnshareRange(c *gin.Context) {
 		return
 	}
 
+	userIds, err := utils.GetUserIdsFromPool(poolId)
+	if err != nil {
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(input.UserIds))
-	for i, userID := range input.UserIds {
+	requests := make([]utils.LudusRequest, len(userIds))
+	for i, userID := range userIds {
 		payload := gin.H{
 			"action":       "revoke",
 			"targetUserID": targetId,

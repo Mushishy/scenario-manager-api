@@ -101,21 +101,21 @@ func RegisterRoutes(r *gin.Engine) {
 	// User management endpoints
 	r.POST("/users/import", validateAPIKey, handlers.ImportUsers)
 	r.POST("/users/delete", validateAPIKey, handlers.DeleteUsers)
-	r.POST("/users/check", validateAPIKey, handlers.CheckUsers)
+	r.GET("/users/check", validateAPIKey, handlers.CheckUsers)
 
 	// Range config
 	r.PUT("/range/config", validateAPIKey, handlers.SetRangeConfig)
-	r.POST("/range/config", validateAPIKey, handlers.GetRangeConfig)
+	r.GET("/range/config", validateAPIKey, handlers.GetRangeConfig)
 
 	// Range deployment
 	r.POST("/range/deploy", validateAPIKey, handlers.DeployRange)
-	r.POST("/range/status", validateAPIKey, handlers.CheckRangeStatus)
+	r.GET("/range/status", validateAPIKey, handlers.CheckRangeStatus)
 	r.POST("/range/redeploy", validateAPIKey, handlers.RedeployRange)
 	r.POST("/range/abort", validateAPIKey, handlers.AbortRange)
 	r.POST("/range/remove", validateAPIKey, handlers.RemoveRange)
 
 	// Range sharing
-	r.POST("/range/access", validateAPIKey, handlers.GetRangeAccess)
+	r.GET("/range/access", validateAPIKey, handlers.GetRangeAccess)
 	r.POST("/range/share", validateAPIKey, handlers.ShareRange)
 	r.POST("/range/unshare", validateAPIKey, handlers.UnshareRange)
 	r.GET("/range/shared", validateAPIKey, handlers.GetSharedRanges)

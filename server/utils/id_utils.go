@@ -2,6 +2,9 @@ package utils
 
 import (
 	"crypto/rand"
+	"dulus/server/config"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -79,4 +82,44 @@ func ValidateFolderID(baseFolder, folderID string) (string, error) {
 	}
 
 	return resolvedPath, nil
+}
+
+// Helper function to get userIds from pool (shared with other handlers)
+func GetUserIdsFromPool(poolId string) ([]string, error) {
+	// Use ValidateFolderID with correct parameters
+	poolPath, err := ValidateFolderID(config.PoolFolder, poolId)
+	switch err {
+	case os.ErrInvalid:
+		return nil, fmt.Errorf("invalid pool ID")
+	case os.ErrNotExist:
+		return nil, fmt.Errorf("pool not found")
+	case nil:
+		// Success, continue
+	default:
+		return nil, fmt.Errorf("failed to validate pool: %w", err)
+	}
+
+	poolJsonPath := filepath.Join(poolPath, "pool.json")
+
+	data, err := os.ReadFile(poolJsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read pool file: %w", err)
+	}
+
+	var pool struct {
+		UsersAndTeams []struct {
+			UserId string `json:"userId"`
+		} `json:"usersAndTeams"`
+	}
+
+	if err := json.Unmarshal(data, &pool); err != nil {
+		return nil, fmt.Errorf("failed to parse pool file: %w", err)
+	}
+
+	var userIds []string
+	for _, userTeam := range pool.UsersAndTeams {
+		userIds = append(userIds, userTeam.UserId)
+	}
+
+	return userIds, nil
 }

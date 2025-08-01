@@ -21,6 +21,6 @@
         "ctfdDataId": { "type": "string" },
         "note": { "type": "string", "maxLength": 15 }
     },
-    "required": ["createdBy", "type", "topologyId"],
+    "required": ["createdBy", "type", "topologyId", "note"],
     "additionalProperties": false
 }
