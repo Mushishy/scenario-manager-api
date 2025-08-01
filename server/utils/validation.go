@@ -5,10 +5,15 @@ import (
 	"dulus/server/config"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/xeipuuv/gojsonschema"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var validFolderIDRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
@@ -84,9 +89,54 @@ func ValidateFolderID(baseFolder, folderID string) (string, error) {
 	return resolvedPath, nil
 }
 
-// Helper function to get userIds from pool (shared with other handlers)
+// CheckPasswordHash compares password with hash
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+// ValidateJSONSchema validates JSON input against a schema and returns the parsed data
+func ValidateJSONSchema(c *gin.Context, schemaPath string) (map[string]interface{}, bool) {
+	schemaLoader := gojsonschema.NewReferenceLoader(schemaPath)
+
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return nil, false
+	}
+
+	documentLoader := gojsonschema.NewGoLoader(input)
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return nil, false
+	}
+
+	if !result.Valid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return nil, false
+	}
+
+	return input, true
+}
+
+// ValidateFolderWithResponse validates folder ID and handles HTTP responses
+func ValidateFolderWithResponse(c *gin.Context, baseFolder, folderId string) (string, bool) {
+	folderPath, err := ValidateFolderID(baseFolder, folderId)
+	switch err {
+	case os.ErrInvalid:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return "", false
+	case os.ErrNotExist:
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return "", false
+	default:
+		return folderPath, true
+	}
+}
+
+// GetUserIdsFromPool helper function to get userIds from pool
 func GetUserIdsFromPool(poolId string) ([]string, error) {
-	// Use ValidateFolderID with correct parameters
 	poolPath, err := ValidateFolderID(config.PoolFolder, poolId)
 	switch err {
 	case os.ErrInvalid:

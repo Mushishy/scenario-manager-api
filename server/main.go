@@ -31,7 +31,7 @@ func main() {
 	RegisterRoutes(r)
 
 	// Ensure base directories exist
-	utils.EnsureDirectoryExists(config.ScenarioFolder)
+	utils.EnsureDirectoryExists(config.CtfdScenarioFolder)
 	utils.EnsureDirectoryExists(config.CtfdDataFolder)
 	utils.EnsureDirectoryExists(config.TopologyConfigFolder)
 

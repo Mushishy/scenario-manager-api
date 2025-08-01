@@ -4,16 +4,18 @@ import (
 	"dulus/server/config"
 	"dulus/server/utils"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
 
 func SetRangeConfig(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
+	}
+
+	topologyId, ok := utils.GetRequiredQueryParam(c, "topologyId")
+	if !ok {
 		return
 	}
 
@@ -27,56 +29,22 @@ func SetRangeConfig(c *gin.Context) {
 		return
 	}
 
-	// Get topologyId from query parameter
-	topologyId := c.Query("topologyId")
-	if topologyId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	// Validate topology exists
+	topologyPath, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId)
+	if !ok {
 		return
 	}
 
-	// Validate if topology exists and get the path
-	topologyPath, err := utils.ValidateFolderID(config.TopologyConfigFolder, topologyId)
-	switch err {
-	case os.ErrInvalid:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	case os.ErrNotExist:
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
-	// Read the first file in the topology folder (same as GetTopology)
-	files, err := os.ReadDir(topologyPath)
-	if err != nil || len(files) == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return
-	}
-
-	// Find the first non-directory file
-	var configFilePath string
-	for _, file := range files {
-		if !file.IsDir() {
-			configFilePath = filepath.Join(topologyPath, file.Name())
-			break
-		}
-	}
-
-	if configFilePath == "" {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
-	// Read the config file content
-	configContent, err := os.ReadFile(configFilePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+	// Read topology file
+	fileInfo, err := utils.ReadFirstFileInDir(topologyPath)
+	if utils.HandleFileReadError(c, err) {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests for file upload
-	responses := utils.MakeConcurrentFileUploads(userIds, string(configContent), true, apiKey, config.MaxConcurrentRequests)
+	// Upload to all users
+	responses := utils.MakeConcurrentFileUploads(userIds, fileInfo.Content, true, apiKey, config.MaxConcurrentRequests)
 
 	// Convert to results format
 	var results []gin.H
@@ -92,9 +60,8 @@ func SetRangeConfig(c *gin.Context) {
 }
 
 func GetRangeConfig(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -132,7 +99,7 @@ func GetRangeConfig(c *gin.Context) {
 	for i, resp := range responses {
 		if resp.Error != nil {
 			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-			allSame = false // Error means not all are the same
+			allSame = false
 		} else {
 			results = append(results, gin.H{"userId": resp.UserID, "config": resp.Response})
 

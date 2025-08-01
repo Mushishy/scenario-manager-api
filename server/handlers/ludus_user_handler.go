@@ -9,9 +9,8 @@ import (
 )
 
 func ImportUsers(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -60,9 +59,8 @@ func ImportUsers(c *gin.Context) {
 }
 
 func DeleteUsers(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -106,9 +104,8 @@ func DeleteUsers(c *gin.Context) {
 }
 
 func CheckUsers(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 

@@ -27,7 +27,7 @@ type LudusResponse struct {
 	Error    error
 }
 
-// Create HTTP client with TLS verification disabled
+// createHTTPClient creates HTTP client with TLS verification disabled
 func createHTTPClient() *http.Client {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -83,17 +83,9 @@ func MakeConcurrentLudusRequests(requests []LudusRequest, apiKey string, maxConc
 	return results
 }
 
-// Helper function to create a map of results by UserID for easier lookup
-func MapResponsesByUserID(responses []LudusResponse) map[string]LudusResponse {
-	responseMap := make(map[string]LudusResponse)
-	for _, resp := range responses {
-		responseMap[resp.UserID] = resp
-	}
-	return responseMap
-}
-
+// MakeLudusRequest makes a single request to Ludus API
 func MakeLudusRequest(method, url string, payload interface{}, apiKey string) (interface{}, error) {
-	client := createHTTPClient() // Use client with TLS verification disabled
+	client := createHTTPClient()
 
 	var req *http.Request
 	var err error
@@ -136,7 +128,7 @@ func MakeLudusRequest(method, url string, payload interface{}, apiKey string) (i
 // MakeConcurrentFileUploads processes multiple file uploads concurrently
 func MakeConcurrentFileUploads(userIds []string, configContent string, force bool, apiKey string, maxConcurrency int) []LudusResponse {
 	if maxConcurrency <= 0 {
-		maxConcurrency = 5 // Default fallback
+		maxConcurrency = 5
 	}
 
 	// Create channels
@@ -181,6 +173,7 @@ func MakeConcurrentFileUploads(userIds []string, configContent string, force boo
 	return results
 }
 
+// UploadConfigFile uploads configuration file to Ludus
 func UploadConfigFile(userID, configContent string, force bool, apiKey string) (interface{}, error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
@@ -206,7 +199,7 @@ func UploadConfigFile(userID, configContent string, force bool, apiKey string) (
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("X-Api-Key", apiKey)
 
-	client := createHTTPClient() // Use client with TLS verification disabled
+	client := createHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

@@ -9,9 +9,8 @@ import (
 )
 
 func DeployRange(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -56,9 +55,8 @@ func DeployRange(c *gin.Context) {
 }
 
 func CheckRangeStatus(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -108,9 +106,8 @@ func CheckRangeStatus(c *gin.Context) {
 }
 
 func RedeployRange(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -175,9 +172,8 @@ func RedeployRange(c *gin.Context) {
 }
 
 func AbortRange(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -221,9 +217,8 @@ func AbortRange(c *gin.Context) {
 }
 
 func RemoveRange(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 

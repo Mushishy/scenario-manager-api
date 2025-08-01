@@ -16,7 +16,7 @@ func GetScenario(c *gin.Context) {
 	scenarioID := c.Query("scenarioID")
 
 	if scenarioID != "" {
-		scenarioPath, err := utils.ValidateFolderID(config.ScenarioFolder, scenarioID)
+		scenarioPath, err := utils.ValidateFolderID(config.CtfdScenarioFolder, scenarioID)
 		switch err {
 		case os.ErrInvalid:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
@@ -62,7 +62,7 @@ func GetScenario(c *gin.Context) {
 			"createdAt":    fileInfo.ModTime().Format(config.TimestampFormat),
 		})
 	} else {
-		scenarios, err := os.ReadDir(config.ScenarioFolder)
+		scenarios, err := os.ReadDir(config.CtfdScenarioFolder)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
@@ -71,7 +71,7 @@ func GetScenario(c *gin.Context) {
 		var scenarioList []gin.H
 		for _, scenario := range scenarios {
 			if scenario.IsDir() {
-				scenarioPath := filepath.Join(config.ScenarioFolder, scenario.Name())
+				scenarioPath := filepath.Join(config.CtfdScenarioFolder, scenario.Name())
 				files, err := os.ReadDir(scenarioPath)
 				if err != nil || len(files) == 0 {
 					continue // Skip folders with no files or read errors
@@ -102,7 +102,7 @@ func PutScenario(c *gin.Context) {
 	var err error
 
 	if scenarioID != "" {
-		scenarioPath, err = utils.ValidateFolderID(config.ScenarioFolder, scenarioID)
+		scenarioPath, err = utils.ValidateFolderID(config.CtfdScenarioFolder, scenarioID)
 		switch err {
 		case os.ErrInvalid:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
@@ -112,12 +112,12 @@ func PutScenario(c *gin.Context) {
 			return
 		}
 	} else {
-		scenarioID, err = utils.GenerateUniqueID(config.ScenarioFolder)
+		scenarioID, err = utils.GenerateUniqueID(config.CtfdScenarioFolder)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
 		}
-		scenarioPath = filepath.Join(config.ScenarioFolder, scenarioID)
+		scenarioPath = filepath.Join(config.CtfdScenarioFolder, scenarioID)
 		if err := os.MkdirAll(scenarioPath, os.ModePerm); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
@@ -162,7 +162,7 @@ func PutScenario(c *gin.Context) {
 func DeleteScenario(c *gin.Context) {
 	scenarioID := c.Query("scenarioID")
 
-	scenarioPath, err := utils.ValidateFolderID(config.ScenarioFolder, scenarioID)
+	scenarioPath, err := utils.ValidateFolderID(config.CtfdScenarioFolder, scenarioID)
 	switch err {
 	case os.ErrInvalid:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})

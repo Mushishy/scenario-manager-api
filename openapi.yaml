@@ -51,7 +51,7 @@ paths:
                   example: "SHARED"
                 topologyId:
                   type: string
-                  example: "XYZ789"  # Removed pattern - your code doesn't validate this
+                  example: "5OvCfk"  # Removed pattern - your code doesn't validate this
                 ctfdDataId:
                   type: string
                   nullable: true
@@ -77,7 +77,7 @@ paths:
                 note:
                   type: string
                   maxLength: 15
-                  example: "Training session"
+                  example: "Training"
               required:
                 - createdBy  # Fixed: was "name"
                 - type
@@ -1217,7 +1217,7 @@ paths:
         - CTFd
       parameters:
         - in: query
-          name: scenarioID
+          name: scenarioId
           schema:
             type: string
           required: false
@@ -1232,7 +1232,7 @@ paths:
                 oneOf:
                   - type: object
                     properties:
-                      scenarioID:
+                      scenarioId:
                         type: string
                         pattern: "^[a-zA-Z0-9]{6}$"
                       scenarioName:
@@ -1247,7 +1247,7 @@ paths:
                     items:
                       type: object
                       properties:
-                        scenarioID:
+                        scenarioId:
                           type: string
                           pattern: "^[a-zA-Z0-9]{6}$"
                         scenarioName:
@@ -1267,7 +1267,7 @@ paths:
         - CTFd
       parameters:
         - in: query
-          name: scenarioID
+          name: scenarioId
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
@@ -1297,7 +1297,7 @@ paths:
         - CTFd
       parameters:
         - in: query
-          name: scenarioID
+          name: scenarioId
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"

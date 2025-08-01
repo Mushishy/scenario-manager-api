@@ -12,9 +12,8 @@ import (
 )
 
 func GetRangeAccess(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
@@ -83,12 +82,12 @@ func GetRangeAccess(c *gin.Context) {
 	}
 
 	if successCount == 0 {
-		zipWriter.Close() // Close even if no files
+		zipWriter.Close()
 		c.JSON(http.StatusNotFound, gin.H{"error": "No configs found"})
 		return
 	}
 
-	// IMPORTANT: Close zip writer BEFORE checking for errors or sending response
+	// Close zip writer before sending response
 	err = zipWriter.Close()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
@@ -105,16 +104,13 @@ func GetRangeAccess(c *gin.Context) {
 }
 
 func ShareRange(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
-	// Get targetId from query parameter
-	targetId := c.Query("targetId")
-	if targetId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	targetId, ok := utils.GetRequiredQueryParam(c, "targetId")
+	if !ok {
 		return
 	}
 
@@ -164,16 +160,13 @@ func ShareRange(c *gin.Context) {
 }
 
 func UnshareRange(c *gin.Context) {
-	poolId := c.Query("poolId")
-	if poolId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
 		return
 	}
 
-	// Get targetId from query parameter
-	targetId := c.Query("targetId")
-	if targetId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	targetId, ok := utils.GetRequiredQueryParam(c, "targetId")
+	if !ok {
 		return
 	}
 
