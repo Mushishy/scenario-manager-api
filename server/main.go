@@ -32,9 +32,8 @@ func main() {
 
 	// Ensure base directories exist
 	utils.EnsureDirectoryExists(config.CtfdScenarioFolder)
-	utils.EnsureDirectoryExists(config.CtfdDataFolder)
 	utils.EnsureDirectoryExists(config.TopologyConfigFolder)
 
 	// Start the server
-	r.Run("0.0.0.0:5000")
+	r.Run("127.0.0.1:5000")
 }

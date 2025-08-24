@@ -13,7 +13,7 @@ import (
 )
 
 func GetScenario(c *gin.Context) {
-	scenarioID := c.Query("scenarioID")
+	scenarioID := c.Query("scenarioId")
 
 	if scenarioID != "" {
 		scenarioPath, err := utils.ValidateFolderID(config.CtfdScenarioFolder, scenarioID)
@@ -97,32 +97,10 @@ func GetScenario(c *gin.Context) {
 }
 
 func PutScenario(c *gin.Context) {
-	scenarioID := c.Query("scenarioID")
+	scenarioID := c.Query("scenarioId")
 	var scenarioPath string
 	var err error
-
-	if scenarioID != "" {
-		scenarioPath, err = utils.ValidateFolderID(config.CtfdScenarioFolder, scenarioID)
-		switch err {
-		case os.ErrInvalid:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-			return
-		case os.ErrNotExist:
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-			return
-		}
-	} else {
-		scenarioID, err = utils.GenerateUniqueID(config.CtfdScenarioFolder)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-			return
-		}
-		scenarioPath = filepath.Join(config.CtfdScenarioFolder, scenarioID)
-		if err := os.MkdirAll(scenarioPath, os.ModePerm); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-			return
-		}
-	}
+	var isUpdate bool
 
 	// Parse the form to get the file
 	file, err := c.FormFile("file")
@@ -137,8 +115,35 @@ func PutScenario(c *gin.Context) {
 		return
 	}
 
-	// If updating, clean the scenario folder
 	if scenarioID != "" {
+		// Validate if scenarioID exists - if not, return bad request
+		isUpdate = true
+		scenarioPath, err = utils.ValidateFolderID(config.CtfdScenarioFolder, scenarioID)
+		switch err {
+		case os.ErrInvalid:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			return
+		case os.ErrNotExist:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			return
+		}
+	} else {
+		// Create new scenario with generated id
+		isUpdate = false
+		scenarioID, err = utils.GenerateUniqueID(config.CtfdScenarioFolder)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		scenarioPath = filepath.Join(config.CtfdScenarioFolder, scenarioID)
+		if err := os.MkdirAll(scenarioPath, os.ModePerm); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+	}
+
+	// If updating, clean the scenario folder
+	if isUpdate {
 		if err := os.RemoveAll(scenarioPath); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
@@ -160,15 +165,13 @@ func PutScenario(c *gin.Context) {
 }
 
 func DeleteScenario(c *gin.Context) {
-	scenarioID := c.Query("scenarioID")
-
-	scenarioPath, err := utils.ValidateFolderID(config.CtfdScenarioFolder, scenarioID)
-	switch err {
-	case os.ErrInvalid:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	scenarioID, ok := utils.GetRequiredQueryParam(c, "scenarioId")
+	if !ok {
 		return
-	case os.ErrNotExist:
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+	}
+
+	scenarioPath, ok := utils.ValidateFolderWithResponse(c, config.CtfdScenarioFolder, scenarioID)
+	if !ok {
 		return
 	}
 

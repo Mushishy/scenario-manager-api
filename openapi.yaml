@@ -5,11 +5,11 @@ info:
   description: API for managing scenarios, data, and topology in Ludus CTFd extension.
 
 servers:
-  - url: http://192.168.1.23:5000
+  - url: http://127.0.0.1:5000
 
 components:
   securitySchemes:
-    ApiKeyAuth:
+    ApiKeyAuth: 
       type: apiKey
       in: header
       name: X-API-Key
@@ -28,6 +28,208 @@ security:
   - ApiKeyAuth: []
 
 paths:
+  # Ctfd Scenario
+  /ctfd/scenario:
+    get:
+      summary: Get scenario(s)
+      description: Get a scenario by ID (as base64) or list all scenarios.
+      tags:
+        - CTFd Scenario
+      parameters:
+        - in: query
+          name: scenarioId
+          schema:
+            type: string
+          required: false
+          description: Scenario ID
+          example: "GHI123"
+      responses:
+        '200':
+          description: Scenario(s) found
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      scenarioId:
+                        type: string
+                        pattern: "^[a-zA-Z0-9]{6}$"
+                      scenarioName:
+                        type: string
+                      scenarioFile:
+                        type: string
+                        description: base64-encoded file
+                      createdAt:
+                        type: string
+                        description: File creation timestamp
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        scenarioId:
+                          type: string
+                          pattern: "^[a-zA-Z0-9]{6}$"
+                        scenarioName:
+                          type: string
+                        createdAt:
+                          type: string
+                          description: File creation timestamp
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+
+    put:
+      summary: Create or update a scenario
+      description: Upload a .zip file to create or update a scenario.
+      tags:
+        - CTFd Scenario
+      parameters:
+        - in: query
+          name: scenarioId
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          required: false
+          description: Scenario ID (if updating)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Uploaded successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+
+    delete:
+      summary: Delete a scenario
+      tags:
+        - CTFd Scenario
+      parameters:
+        - in: query
+          name: scenarioId
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          required: true
+          description: Scenario ID
+      responses:
+        '204':
+          description: Deleted successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+
+  # Topology
+  /topology:
+    get:
+      summary: Get topology
+      tags:
+        - Topology
+      parameters:
+        - in: query
+          name: topologyId
+          schema:
+            type: string
+          required: false
+          description: Topology ID
+          example: "XYZ789"
+      responses:
+        '200':
+          description: Topology found
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      topologyId:
+                        type: string
+                        pattern: "^[a-zA-Z0-9]{6}$"
+                      topologyName:
+                        type: string
+                      topologyFile:
+                        type: string
+                        description: base64-encoded file
+                      createdAt:
+                        type: string
+                        description: File creation timestamp
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        topologyId:
+                          type: string
+                          pattern: "^[a-zA-Z0-9]{6}$"
+                        topologyName:
+                          type: string
+                        createdAt:
+                          type: string
+                          description: File creation timestamp
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+
+    put:
+      summary: Create or update topology
+      tags:
+        - Topology
+      parameters:
+        - in: query
+          name: topologyId
+          schema:
+            type: string
+          required: false
+          description: Topology ID (if updating)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Uploaded successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+
+    delete:
+      summary: Delete topology
+      tags:
+        - Topology
+      parameters:
+        - in: query
+          name: topologyId
+          schema:
+            type: string
+          required: true
+          description: Topology ID
+      responses:
+        '204':
+          description: Deleted successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+  
   # Pool
   /pool:
     post:
@@ -42,20 +244,13 @@ paths:
             schema:
               type: object
               properties:
-                createdBy:
-                  type: string
-                  example: "admin"
                 type:
                   type: string
                   enum: ["CTFD", "SHARED", "INDIVIDUAL"]  # Fixed: was ["SHARED", "INDIVIDUAL", "TEAM"]
                   example: "SHARED"
                 topologyId:
                   type: string
-                  example: "5OvCfk"  # Removed pattern - your code doesn't validate this
-                ctfdDataId:
-                  type: string
-                  nullable: true
-                  example: "DEF456"  # Removed pattern - your code doesn't validate this
+                  example: "KFfeQZ"  # Removed pattern - your code doesn't validate this
                 mainUser:
                   type: string
                   example: "instructor1"
@@ -158,10 +353,6 @@ paths:
                       topologyId:
                         type: string
                         example: "XYZ789"
-                      ctfdDataId:
-                        type: string
-                        nullable: true
-                        example: "DEF456"
                       mainUser:
                         type: string
                         example: "instructor1"
@@ -212,10 +403,6 @@ paths:
                         topologyId:
                           type: string
                           example: "XYZ789"
-                        ctfdDataId:
-                          type: string
-                          nullable: true
-                          example: "DEF456"
                         note:
                           type: string
                           maxLength: 15
@@ -413,74 +600,7 @@ paths:
                   error:
                     type: string
                     example: "Internal Server Error"
-
-  /pool/ctfd:
-    patch:
-      summary: Update pool CTFd data
-      description: Update the CTFd data ID for a specific pool.
-      tags:
-        - Pool
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: true
-          description: Pool ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ctfdDataId:
-                  type: string
-                  pattern: "^[a-zA-Z0-9]{6}$"
-              required:
-                - ctfdDataId
-      responses:
-        '200':
-          description: Pool CTFd data updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Updated successfully"
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
-
+                    
   /pool/note:
     patch:
       summary: Update pool note
@@ -548,777 +668,15 @@ paths:
                     type: string
                     example: "Internal Server Error"
 
-  # User Management Endpoints
-  /users/import:
-    post:
-      summary: Import users from pool
-      description: Import all users from a pool into Ludus
-      tags:
-        - User Management
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Import results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /users/delete:
-    post:
-      summary: Delete users from pool
-      description: Delete all users from a pool in Ludus
-      tags:
-        - User Management
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Delete results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /users/check:
-    get:
-      summary: Check users from pool
-      description: Check if all users from a pool exist in Ludus
-      tags:
-        - User Management
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Check results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        exists:
-                          type: boolean
-                          example: true
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  
-  # Range Sharing Endpoints
-  /range/access:
-    get:
-      summary: Get WireGuard access configs for pool users
-      description: Download WireGuard configuration files for all users in a pool as a ZIP file
-      tags:
-        - Range Sharing
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: ZIP file containing WireGuard configurations
-          content:
-            application/zip:
-              schema:
-                type: string
-                format: binary
-          headers:
-            Content-Disposition:
-              schema:
-                type: string
-                example: 'attachment; filename=wireguard-configs.zip'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool or configs not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /range/share:
-    post:
-      summary: Share range access for pool users
-      description: Grant range access from all users in a pool to a target user
-      tags:
-        - Range Sharing
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-        - name: targetId
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Target user ID to grant access to
-          example: "instructor1"
-      responses:
-        '200':
-          description: Share results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /range/unshare:
-    post:
-      summary: Unshare range access for pool users
-      description: Revoke range access from all users in a pool to a target user
-      tags:
-        - Range Sharing
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-        - name: targetId
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Target user ID to revoke access from
-          example: "instructor1"
-      responses:
-        '200':
-          description: Unshare results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  # Range Deployment Endpoints
-  /range/deploy:
-    post:
-      summary: Deploy range for pool users
-      description: Deploy range infrastructure for all users in a pool
-      tags:
-        - Range Deployment
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Deployment results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /range/status:
-    get:
-      summary: Check range status for pool users
-      description: Get current range status for all users in a pool
-      tags:
-        - Range Deployment
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Status check results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        state:
-                          type: string
-                          example: "DEPLOYED"
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /range/redeploy:
-    post:
-      summary: Redeploy range for pool users
-      description: Redeploy range infrastructure for all users in a pool based on current state
-      tags:
-        - Range Deployment
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Redeployment results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        action:
-                          type: string
-                          example: "redeployed"
-                        message:
-                          type: string
-                        state:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /range/abort:
-    post:
-      summary: Abort range deployment for pool users
-      description: Abort ongoing range deployment for all users in a pool
-      tags:
-        - Range Deployment
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Abort results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /range/remove:
-    post:
-      summary: Remove range for pool users
-      description: Remove range infrastructure for all users in a pool
-      tags:
-        - Range Deployment
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Removal results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  # Range Config Endpoints
-  /range/config:
-    put:
-      summary: Set range configuration for pool users
-      description: Upload topology configuration to all users in a pool
-      tags:
-        - Range Config
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-        - name: topologyId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Topology ID to upload
-          example: "XYZ789"
-      responses:
-        '200':
-          description: Configuration upload results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool or Topology Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-    get:
-      summary: Get range configuration for pool users
-      description: Retrieve current range configuration from all users in a pool
-      tags:
-        - Range Config
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: Configuration retrieval results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        config:
-                          type: object
-                        error:
-                          type: string
-                  allSame:
-                    type: boolean
-                    description: Whether all user configurations are identical
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  # Ctfd
-  /ctfd/scenario:
-    get:
-      summary: Get scenario(s)
-      description: Get a scenario by ID (as base64) or list all scenarios.
-      tags:
-        - CTFd
-      parameters:
-        - in: query
-          name: scenarioId
-          schema:
-            type: string
-          required: false
-          description: Scenario ID
-          example: "GHI123"
-      responses:
-        '200':
-          description: Scenario(s) found
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      scenarioId:
-                        type: string
-                        pattern: "^[a-zA-Z0-9]{6}$"
-                      scenarioName:
-                        type: string
-                      scenarioFile:
-                        type: string
-                        description: base64-encoded file
-                      createdAt:
-                        type: string
-                        description: File creation timestamp
-                  - type: array
-                    items:
-                      type: object
-                      properties:
-                        scenarioId:
-                          type: string
-                          pattern: "^[a-zA-Z0-9]{6}$"
-                        scenarioName:
-                          type: string
-                        createdAt:
-                          type: string
-                          description: File creation timestamp
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-
-    put:
-      summary: Create or update a scenario
-      description: Upload a .zip file to create or update a scenario.
-      tags:
-        - CTFd
-      parameters:
-        - in: query
-          name: scenarioId
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          required: false
-          description: Scenario ID (if updating)
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-      responses:
-        '200':
-          description: Uploaded successfully
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-
-    delete:
-      summary: Delete a scenario
-      tags:
-        - CTFd
-      parameters:
-        - in: query
-          name: scenarioId
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          required: true
-          description: Scenario ID
-      responses:
-        '204':
-          description: Deleted successfully
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-
+  # Ctfd Data
   /ctfd/data:
     get:
-      summary: Get data
+      summary: Get flag data
       tags:
-        - CTFd
+        - Ctfd Flag Data
       parameters:
         - in: query
-          name: ctfdDataId
+          name: poolId
           schema:
             type: string
           required: false
@@ -1333,7 +691,7 @@ paths:
                 oneOf:
                   - type: object
                     properties:
-                      ctfdDataId:
+                      poolId:
                         type: string
                         pattern: "^[a-zA-Z0-9]{6}$"
                       ctfdData:
@@ -1360,7 +718,7 @@ paths:
                     items:
                       type: object
                       properties:
-                        ctfdDataId:
+                        poolId:
                           type: string
                           pattern: "^[a-zA-Z0-9]{6}$"
         '400':
@@ -1369,16 +727,16 @@ paths:
           description: Not Found
 
     put:
-      summary: Create or update data
+      summary: Update flag data
       tags:
-        - CTFd
+        - Ctfd Flag Data
       parameters:
         - in: query
-          name: ctfdDataId
+          name: poolId
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          required: false
+          required: true
           description: Data ID (if updating)
       requestBody:
         required: true
@@ -1452,36 +810,16 @@ paths:
                   error:
                     type: string
                     example: "Not Found"
-
-    delete:
-      summary: Delete data
-      tags:
-        - CTFd
-      parameters:
-        - in: query
-          name: ctfdDataId
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          required: true
-          description: Data ID
-      responses:
-        '204':
-          description: Deleted successfully
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-
+                    
   /ctfd/data/logins:
     get:
       summary: Get CTFd logins
       description: Retrieve user login information in CSV format for a specific CTFd data ID or all available data.
       tags:
-        - CTFd
+        - Ctfd Flag Data
       parameters:
         - in: query
-          name: ctfdDataId
+          name: poolId
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
@@ -1517,102 +855,663 @@ paths:
                   error:
                     type: string
                     example: "Not Found"
-  
-  # Topology
-  /topology:
-    get:
-      summary: Get topology
+
+  # Ludus User Management
+  /users/import:
+    post:
+      summary: Import users from pool
+      description: Import all users from a pool into Ludus
       tags:
-        - Topology
+        - Ludus User Management
       parameters:
-        - in: query
-          name: topologyId
+        - name: poolId
+          in: query
+          required: true
           schema:
             type: string
-          required: false
-          description: Topology ID
-          example: "XYZ789"
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
         '200':
-          description: Topology found
+          description: Import results
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      topologyId:
-                        type: string
-                        pattern: "^[a-zA-Z0-9]{6}$"
-                      topologyName:
-                        type: string
-                      topologyFile:
-                        type: string
-                        description: base64-encoded file
-                      createdAt:
-                        type: string
-                        description: File creation timestamp
-                  - type: array
+                type: object
+                properties:
+                  results:
+                    type: array
                     items:
                       type: object
                       properties:
-                        topologyId:
+                        userId:
                           type: string
-                          pattern: "^[a-zA-Z0-9]{6}$"
-                        topologyName:
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
                           type: string
-                        createdAt:
-                          type: string
-                          description: File creation timestamp
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: Not Found
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-    put:
-      summary: Create or update topology
+  /users/delete:
+    post:
+      summary: Delete users from pool
+      description: Delete all users from a pool in Ludus
       tags:
-        - Topology
+        - Ludus User Management
       parameters:
-        - in: query
-          name: topologyId
+        - name: poolId
+          in: query
+          required: true
           schema:
             type: string
-          required: false
-          description: Topology ID (if updating)
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
         '200':
-          description: Uploaded successfully
+          description: Delete results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: Not Found
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-    delete:
-      summary: Delete topology
+  /users/check:
+    get:
+      summary: Check users from pool
+      description: Check if all users from a pool exist in Ludus
       tags:
-        - Topology
+        - Ludus User Management
       parameters:
-        - in: query
-          name: topologyId
+        - name: poolId
+          in: query
+          required: true
           schema:
             type: string
-          required: true
-          description: Topology ID
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
       responses:
-        '204':
-          description: Deleted successfully
+        '200':
+          description: Check results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        exists:
+                          type: boolean
+                          example: true
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: Not Found
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Ludus Range Config
+  /range/config:
+    put:
+      summary: Set range configuration for pool users
+      description: Upload topology configuration to all users in a pool
+      tags:
+        - Ludus Range Config
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+        - name: topologyId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Topology ID to upload
+          example: "XYZ789"
+      responses:
+        '200':
+          description: Configuration upload results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool or Topology Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Get range configuration for pool users
+      description: Retrieve current range configuration from all users in a pool
+      tags:
+        - Ludus Range Config
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Configuration retrieval results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        config:
+                          type: object
+                        error:
+                          type: string
+                  allSame:
+                    type: boolean
+                    description: Whether all user configurations are identical
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Ldus Range Sharing
+  /range/access:
+    get:
+      summary: Get WireGuard access configs for pool users
+      description: Download WireGuard configuration files for all users in a pool as a ZIP file
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: ZIP file containing WireGuard configurations
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename=wireguard-configs.zip'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool or configs not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/share:
+    post:
+      summary: Share range access for pool users
+      description: Grant range access from all users in a pool to a target user
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+        - name: targetId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Target user ID to grant access to
+          example: "instructor1"
+      responses:
+        '200':
+          description: Share results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/unshare:
+    post:
+      summary: Unshare range access for pool users
+      description: Revoke range access from all users in a pool to a target user
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+        - name: targetId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Target user ID to revoke access from
+          example: "instructor1"
+      responses:
+        '200':
+          description: Unshare results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Ludus Range Deployment
+  /range/deploy:
+    post:
+      summary: Deploy range for pool users
+      description: Deploy range infrastructure for all users in a pool
+      tags:
+        - Ludus Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Deployment results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/status:
+    get:
+      summary: Check range status for pool users
+      description: Get current range status for all users in a pool
+      tags:
+        - Ludus Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Status check results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        state:
+                          type: string
+                          example: "DEPLOYED"
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/redeploy:
+    post:
+      summary: Redeploy range for pool users
+      description: Redeploy range infrastructure for all users in a pool based on current state
+      tags:
+        - Ludus Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Redeployment results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        action:
+                          type: string
+                          example: "redeployed"
+                        message:
+                          type: string
+                        state:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/abort:
+    post:
+      summary: Abort range deployment for pool users
+      description: Abort ongoing range deployment for all users in a pool
+      tags:
+        - Ludus Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Abort results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/remove:
+    post:
+      summary: Remove range for pool users
+      description: Remove range infrastructure for all users in a pool
+      tags:
+        - Ludus Range Deployment
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+      responses:
+        '200':
+          description: Removal results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "BATCHuser1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

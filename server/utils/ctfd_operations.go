@@ -76,7 +76,7 @@ func ValidateUsersAndTeams(ctfdData []interface{}) error {
 
 // ReadCTFdJSON reads and parses CTFd JSON data
 func ReadCTFdJSON(dataPath string) (map[string]interface{}, error) {
-	filePath := filepath.Join(dataPath, "ctfd_data.json") // Changed from "data.json" to "ctfd_data.json"
+	filePath := filepath.Join(dataPath, "ctfd_data.json")
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -120,9 +120,9 @@ func GetAllCTFdData(baseFolder string) ([]map[string]interface{}, error) {
 			}
 
 			dataItems = append(dataItems, map[string]interface{}{
-				"ctfdDataId": file.Name(),
-				"createdAt":  fileInfo.ModTime().Format(time.RFC3339),
-				"itemCount":  itemCount,
+				"poolId":    file.Name(),
+				"createdAt": fileInfo.ModTime().Format(time.RFC3339),
+				"itemCount": itemCount,
 			})
 		}
 	}

@@ -5,7 +5,6 @@ import (
 	"dulus/server/handlers"
 	"dulus/server/utils"
 	"net/http"
-	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -24,13 +23,10 @@ func validateAPIKey(c *gin.Context) {
 	}
 
 	// Check that we can pull the userID and apikey from what the user provided
-	apiKeySplit := strings.Split(APIKey, ".")
-	if len(apiKeySplit) != 2 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Malformed API Key provided"})
-		c.Abort()
+	userID, ok := utils.ExtractUserIDFromAPIKey(c, APIKey)
+	if !ok {
 		return
 	}
-	userID := apiKeySplit[0]
 
 	err := db.QueryRow("SELECT is_admin, hashed_api_key FROM user_objects WHERE user_id = ?", userID).Scan(&isAdmin, &hashedAPIKey)
 	if err != nil {
@@ -82,7 +78,6 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/ctfd/data", validateAPIKey, handlers.GetCtfdData)
 	r.GET("/ctfd/data/logins", validateAPIKey, handlers.GetCtfdLogins)
 	r.PUT("/ctfd/data", validateAPIKey, handlers.PutCtfdData)
-	r.DELETE("/ctfd/data", validateAPIKey, handlers.DeleteCtfdData)
 
 	// Topology route
 	r.GET("/topology", validateAPIKey, handlers.GetTopology)
@@ -93,7 +88,6 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/pool", validateAPIKey, handlers.PostPool)
 	r.PATCH("/pool/users", validateAPIKey, handlers.PatchPoolUsers)
 	r.PATCH("/pool/topology", validateAPIKey, handlers.PatchPoolTopology)
-	r.PATCH("/pool/ctfd", validateAPIKey, handlers.PatchPoolCtfdData)
 	r.PATCH("/pool/note", validateAPIKey, handlers.PatchPoolNote)
 	r.GET("/pool", validateAPIKey, handlers.GetPool)
 	r.DELETE("/pool", validateAPIKey, handlers.DeletePool)

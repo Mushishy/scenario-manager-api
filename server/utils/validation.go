@@ -95,6 +95,17 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
+// Extracts userID from APIKey, returns userID and error if malformed
+func ExtractUserIDFromAPIKey(c *gin.Context, APIKey string) (string, bool) {
+	apiKeySplit := strings.Split(APIKey, ".")
+	if len(apiKeySplit) != 2 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Malformed API Key provided"})
+		c.Abort()
+		return "", false
+	}
+	return apiKeySplit[0], true
+}
+
 // ValidateJSONSchema validates JSON input against a schema and returns the parsed data
 func ValidateJSONSchema(c *gin.Context, schemaPath string) (map[string]interface{}, bool) {
 	schemaLoader := gojsonschema.NewReferenceLoader(schemaPath)

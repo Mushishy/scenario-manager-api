@@ -16,22 +16,20 @@ func PostPool(c *gin.Context) {
 		return
 	}
 
-	// Set ctfdDataId to null if not provided
-	if _, exists := input["ctfdDataId"]; !exists {
-		input["ctfdDataId"] = nil
+	// Check that we can pull the userID and apikey from what the user provided
+	APIKey := c.Request.Header.Get("X-API-Key")
+	userID, ok := utils.ExtractUserIDFromAPIKey(c, APIKey)
+	if !ok {
+		return
 	}
+
+	// Add createdBy to input
+	input["createdBy"] = userID
 
 	// Validate TopologyId
 	topologyId := input["topologyId"].(string)
 	if _, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId); !ok {
 		return
-	}
-
-	// Validate CtfdDataId if provided
-	if ctfdDataId, ok := input["ctfdDataId"].(string); ok && ctfdDataId != "" {
-		if _, ok := utils.ValidateFolderWithResponse(c, config.CtfdDataFolder, ctfdDataId); !ok {
-			return
-		}
 	}
 
 	// Process UsersAndTeams to add userId
@@ -51,7 +49,7 @@ func PostPool(c *gin.Context) {
 		}
 	}
 
-	// Generate pool ID and create folder
+	// Generate pool id and create folder
 	poolId, err := utils.GenerateUniqueID(config.PoolFolder)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
@@ -72,6 +70,8 @@ func PostPool(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully", "id": poolId})
 }
 
+// TODO
+// when I add users I have to remove flags.json
 func PatchPoolUsers(c *gin.Context) {
 	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
 	if !ok {
@@ -139,42 +139,6 @@ func PatchPoolTopology(c *gin.Context) {
 	}
 
 	poolData["topologyId"] = topologyId
-
-	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Updated successfully"})
-}
-
-func PatchPoolCtfdData(c *gin.Context) {
-	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
-	if !ok {
-		return
-	}
-
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
-	if !ok {
-		return
-	}
-
-	input, ok := utils.ValidateJSONSchema(c, "file://schemas/pool_ctfd_data_schema.json")
-	if !ok {
-		return
-	}
-
-	// Validate CtfdDataId exists
-	ctfdDataId := input["ctfdDataId"].(string)
-	if _, ok := utils.ValidateFolderWithResponse(c, config.CtfdDataFolder, ctfdDataId); !ok {
-		return
-	}
-
-	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
-	if !ok {
-		return
-	}
-
-	poolData["ctfdDataId"] = ctfdDataId
 
 	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
 		return

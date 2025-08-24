@@ -1,8 +1,8 @@
 ludus.db
 notes.md
 setup
-/server/data/ctfd_data/*
-/server/data/ctfd_scenarios/*
-/server/data/topology_configs/*
+/server/data/topologies/*
+/server/data/scenarios/*
+/server/data/pools/*
 /server/data/input/*
-/server/data/pool/*
+.DS_Store
