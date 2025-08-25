@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // generateUserId generates userId from user name
@@ -89,45 +88,6 @@ func ReadCTFdJSON(dataPath string) (map[string]interface{}, error) {
 	}
 
 	return data, nil
-}
-
-// GetAllCTFdData returns all CTFd data items
-func GetAllCTFdData(baseFolder string) ([]map[string]interface{}, error) {
-	var dataItems []map[string]interface{}
-
-	files, err := os.ReadDir(baseFolder)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		if file.IsDir() {
-			dataPath := filepath.Join(baseFolder, file.Name())
-
-			// Get file info for creation time
-			fileInfo, err := os.Stat(dataPath)
-			if err != nil {
-				continue
-			}
-
-			// Try to read the data to get additional info
-			data, err := ReadCTFdJSON(dataPath)
-			var itemCount int
-			if err == nil {
-				if ctfdData, ok := data["ctfd_data"].([]interface{}); ok {
-					itemCount = len(ctfdData)
-				}
-			}
-
-			dataItems = append(dataItems, map[string]interface{}{
-				"poolId":    file.Name(),
-				"createdAt": fileInfo.ModTime().Format(time.RFC3339),
-				"itemCount": itemCount,
-			})
-		}
-	}
-
-	return dataItems, nil
 }
 
 // ValidateFlagsConsistency ensures that if one user has flags set, all users must have flags set

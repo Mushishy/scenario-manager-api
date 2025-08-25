@@ -343,7 +343,7 @@ paths:
                       poolId:
                         type: string
                         example: "ABC123"
-                      createdBy:  # Fixed: was "name"
+                      createdBy:
                         type: string
                         example: "admin"
                       type:
@@ -374,6 +374,10 @@ paths:
                         type: string
                         maxLength: 15
                         example: "Training session"
+                      ctfdData:
+                        type: boolean
+                        description: Indicates if CTFD data is available for this pool
+                        example: true
                   - type: object
                     description: Single pool (userIds only)
                     properties:
@@ -386,14 +390,14 @@ paths:
                           type: string
                         example: ["BATCHalicedanmayers", "BATCHbobsmith"]
                   - type: array
-                    description: List of all pools (mainUser and usersAndTeams removed)
+                    description: List of all pools
                     items:
                       type: object
                       properties:
                         poolId:
                           type: string
                           example: "ABC123"
-                        createdBy:  # Fixed: was "name"
+                        createdBy:
                           type: string
                           example: "admin"
                         type:
@@ -407,6 +411,10 @@ paths:
                           type: string
                           maxLength: 15
                           example: "Training session"
+                        ctfdData:
+                          type: boolean
+                          description: Indicates if CTFD data is available for this pool
+                          example: true
         '400':
           description: Bad Request
           content:
@@ -460,79 +468,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
-  /pool/users:
-    patch:
-      summary: Update pool users
-      description: Update the users and teams for a specific pool.
-      tags:
-        - Pool
-      parameters:
-        - in: query
-          name: poolId
-          schema:
-            type: string
-          required: true
-          description: Pool ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                usersAndTeams:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      user:
-                        type: string
-                      team:
-                        type: string
-                    required:
-                      - user
-      responses:
-        '200':
-          description: Pool users updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Updated successfully"
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Not Found"
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Internal Server Error"
 
   /pool/topology:
     patch:
@@ -679,106 +614,78 @@ paths:
           name: poolId
           schema:
             type: string
-          required: false
-          description: Data ID
+          required: true
+          description: Pool ID to get CTFD data for
           example: "DEF456"
       responses:
         '200':
-          description: Data found
+          description: CTFD data found
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      poolId:
-                        type: string
-                        pattern: "^[a-zA-Z0-9]{6}$"
-                      ctfdData:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            user:
-                              type: string
-                            password:
-                              type: string
-                            team:
-                              type: string
-                            flags:
-                              type: array
-                              items:
-                                type: object
-                                properties:
-                                  variable:
-                                    type: string
-                                  contents:
-                                    type: string
-                  - type: array
+                type: object
+                properties:
+                  ctfdData:
+                    type: array
                     items:
                       type: object
                       properties:
-                        poolId:
+                        user:
                           type: string
-                          pattern: "^[a-zA-Z0-9]{6}$"
+                          example: "alice"
+                        password:
+                          type: string
+                          example: "password123"
+                        team:
+                          type: string
+                          example: "Red Team"
+                        flags:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              variable:
+                                type: string
+                                example: "FLAG_1"
+                              contents:
+                                type: string
+                                example: "example_flag_content"
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: Not Found
-
+          description: Pool not found or CTFD data not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
     put:
-      summary: Update flag data
       tags:
         - Ctfd Flag Data
+      summary: Extract and retrieve CTFd flags from user logs
+      description: Extracts flags from deployed range logs for all users in a pool and saves the data to ctfd_data.json
+      security:
+        - ApiKeyAuth: []
       parameters:
-        - in: query
-          name: poolId
+        - name: poolId
+          in: query
+          required: true
+          description: The pool ID to extract flags for
           schema:
             type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          required: true
-          description: Data ID (if updating)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ctfd_data:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      user:
-                        type: string
-                      password:
-                        type: string
-                      team:
-                        type: string
-                      flags:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            variable:
-                              type: string
-                            contents:
-                              type: string
-                          required:
-                            - variable
-                            - contents
-                          additionalProperties: false
-                    required:
-                      - user
-                      - password
-                    additionalProperties: false
-              required:
-                - ctfd_data
-              additionalProperties: false
       responses:
         '200':
-          description: Uploaded successfully
+          description: Flags extracted and saved successfully
           content:
             application/json:
               schema:
@@ -786,12 +693,35 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "uploaded successfully"
-                  id:
+                    example: "Flags extracted and saved successfully"
+                  poolId:
                     type: string
-                    example: "ABC123"
+                    example: "pool123"
+                  ctfd_data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user:
+                          type: string
+                          example: "user1"
+                        password:
+                          type: string
+                          example: "password123"
+                        team:
+                          type: string
+                          example: "team1"
+                        flags:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              value:
+                                type: string
         '400':
-          description: Bad Request
+          description: Bad Request - Invalid poolId or missing required parameter
           content:
             application/json:
               schema:
@@ -800,8 +730,18 @@ paths:
                   error:
                     type: string
                     example: "Bad Request"
+        '401':
+          description: Unauthorized - Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized"
         '404':
-          description: Not Found
+          description: Not Found - Pool not found
           content:
             application/json:
               schema:
@@ -810,7 +750,17 @@ paths:
                   error:
                     type: string
                     example: "Not Found"
-                    
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
+
   /ctfd/data/logins:
     get:
       summary: Get CTFd logins

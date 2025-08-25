@@ -71,47 +71,38 @@ func GetCtfdLogins(c *gin.Context) {
 }
 
 func GetCtfdData(c *gin.Context) {
-	poolId := c.Query("poolId")
-
-	if poolId != "" {
-		// Validate the folder id
-		dataPath, err := utils.ValidateFolderID(config.PoolFolder, poolId)
-		switch err {
-		case os.ErrInvalid:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-			return
-		case os.ErrNotExist:
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-			return
-		}
-
-		// Read the ctfd_data.json file
-		data, err := utils.ReadCTFdJSON(dataPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-			}
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"ctfdData": data["ctfd_data"],
-		})
-	} else {
-		// List all poolId with their content
-		dataItems, err := utils.GetAllCTFdData(config.PoolFolder)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-			return
-		}
-
-		c.JSON(http.StatusOK, dataItems)
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
 	}
+
+	// Validate the folder id
+	dataPath, err := utils.ValidateFolderID(config.PoolFolder, poolId)
+	switch err {
+	case os.ErrInvalid:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	case os.ErrNotExist:
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
+	// Read the ctfd_data.json file
+	data, err := utils.ReadCTFdJSON(dataPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"ctfdData": data["ctfd_data"],
+	})
 }
 
-// TODO ADD OPTION TO EXTRACT IT FROM LOGS
 func PutCtfdData(c *gin.Context) {
 	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
 	if !ok {
@@ -123,36 +114,46 @@ func PutCtfdData(c *gin.Context) {
 		return
 	}
 
-	input, ok := utils.ValidateJSONSchema(c, "file://schemas/ctfd_data_schema.json")
-	if !ok {
+	userIds, err := utils.GetUserIdsFromPool(poolId)
+	if err != nil {
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		}
 		return
 	}
 
-	// Custom validation for 'team' field and 'flags' field
-	ctfdData, ok := input["ctfd_data"].([]interface{})
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	apiKey := c.Request.Header.Get("X-API-Key")
+
+	// Check if all ranges are deployed
+	if !utils.AllRangesDeployed(userIds, apiKey, c) {
 		return
 	}
 
-	// Validate team field consistency
-	if err := utils.ValidateUsersAndTeams(ctfdData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	// Read pool.json to get user details
+	userDetailMap, err := utils.GetUserDetailsFromPool(poolPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Validate flags field consistency
-	if err := utils.ValidateFlagsConsistency(ctfdData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
+	// Extract flags from logs for all users
+	ctfdUsers := utils.ExtractFlagsFromLogs(userIds, userDetailMap, apiKey)
 
-	// Save the JSON data to a file
-	if err := utils.SaveCTFdData(poolPath, input); err != nil {
+	// Prepare the data structure for saving
+	ctfdData := utils.CtfdData{CtfdData: ctfdUsers}
+	dataToSave := map[string]interface{}{"ctfd_data": ctfdUsers}
+
+	// Save the new data to file
+	if err := utils.SaveCTFdData(poolPath, dataToSave); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 		return
 	}
 
-	// Return success response
-	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully", "id": poolId})
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "Flags extracted and saved successfully",
+		"poolId":    poolId,
+		"ctfd_data": ctfdData.CtfdData,
+	})
 }

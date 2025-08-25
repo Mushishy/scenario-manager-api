@@ -55,6 +55,12 @@ func WritePoolDataWithResponse(c *gin.Context, poolPath string, poolData map[str
 	return true
 }
 
+func HasCtfdData(poolPath string) bool {
+	ctfdDataPath := filepath.Join(poolPath, "ctfd_data.json")
+	_, err := os.Stat(ctfdDataPath)
+	return err == nil
+}
+
 // GetAllPools returns all pools with basic information (excluding sensitive data)
 func GetAllPools(poolFolder string) ([]map[string]interface{}, error) {
 	var pools []map[string]interface{}
@@ -76,6 +82,9 @@ func GetAllPools(poolFolder string) ([]map[string]interface{}, error) {
 			delete(poolData, "mainUser")
 			delete(poolData, "usersAndTeams")
 			poolData["poolId"] = file.Name()
+
+			// Set ctfdData flag based on file existence
+			poolData["ctfdData"] = HasCtfdData(poolPath)
 
 			pools = append(pools, poolData)
 		}

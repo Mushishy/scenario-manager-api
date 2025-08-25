@@ -10,21 +10,75 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/gin-gonic/gin"
 )
 
+// Core types
 type LudusRequest struct {
 	Method  string
 	URL     string
 	Payload interface{}
-	UserID  string // For identification in results
+	UserID  string
 }
 
 type LudusResponse struct {
 	UserID   string
 	Response interface{}
 	Error    error
+}
+
+// Pool-related types
+type UserDetails struct {
+	Username string
+	Team     string
+}
+
+type UserTeam struct {
+	UserId string `json:"userId"`
+	User   string `json:"user"`
+	Team   string `json:"team"`
+}
+
+type Pool struct {
+	CreatedBy     string     `json:"createdBy"`
+	MainUser      string     `json:"mainUser"`
+	Note          string     `json:"note"`
+	TopologyId    string     `json:"topologyId"`
+	Type          string     `json:"type"`
+	UsersAndTeams []UserTeam `json:"usersAndTeams"`
+}
+
+// CTFd-related types
+type Flag struct {
+	Variable string      `json:"variable"`
+	Contents interface{} `json:"contents"`
+}
+
+type CtfdUser struct {
+	User     string `json:"user"`
+	Password string `json:"password"`
+	Team     string `json:"team"`
+	Flags    []Flag `json:"flags"`
+}
+
+type CtfdData struct {
+	CtfdData []CtfdUser `json:"ctfd_data"`
+}
+
+// Range status types
+type RangeStatus struct {
+	RangeState string `json:"rangeState"`
+}
+
+type LogResult struct {
+	Result string `json:"result"`
 }
 
 // createHTTPClient creates HTTP client with TLS verification disabled
@@ -217,4 +271,135 @@ func UploadConfigFile(userID, configContent string, force bool, apiKey string) (
 	}
 
 	return result, nil
+}
+
+// AllRangesDeployed checks if all user ranges are deployed
+func AllRangesDeployed(userIds []string, apiKey string, c *gin.Context) bool {
+	requests := make([]LudusRequest, len(userIds))
+	for i, userID := range userIds {
+		requests[i] = LudusRequest{
+			Method: "GET",
+			URL:    config.LudusUrl + "/range/?userID=" + userID,
+			UserID: userID,
+		}
+	}
+
+	responses := MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+
+	for _, resp := range responses {
+		if resp.Error != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to check range status for user " + resp.UserID})
+			return false
+		}
+
+		if resp.Response != nil {
+			var rangeStatus RangeStatus
+			if data, err := json.Marshal(resp.Response); err == nil {
+				if err := json.Unmarshal(data, &rangeStatus); err == nil {
+					if rangeStatus.RangeState != "SUCCESS" && rangeStatus.RangeState != "DEPLOYED" {
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Not all ranges are deployed. User " + resp.UserID + " has state: " + rangeStatus.RangeState})
+						return false
+					}
+				} else {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Unable to determine range state for user " + resp.UserID})
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+// GetUserDetailsFromPool reads pool.json and returns a map of user details
+func GetUserDetailsFromPool(poolPath string) (map[string]UserDetails, error) {
+	poolJsonPath := filepath.Join(poolPath, "pool.json")
+	poolData, err := os.ReadFile(poolJsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read pool data")
+	}
+
+	var pool Pool
+	if err := json.Unmarshal(poolData, &pool); err != nil {
+		return nil, fmt.Errorf("failed to parse pool data")
+	}
+
+	userDetailMap := make(map[string]UserDetails)
+	for _, userTeam := range pool.UsersAndTeams {
+		userDetailMap[userTeam.UserId] = UserDetails{
+			Username: userTeam.User,
+			Team:     userTeam.Team,
+		}
+	}
+	return userDetailMap, nil
+}
+
+// ExtractFlagsFromLogs gets logs and extracts flags for all users
+func ExtractFlagsFromLogs(userIds []string, userDetailMap map[string]UserDetails, apiKey string) []CtfdUser {
+	requests := make([]LudusRequest, len(userIds))
+	for i, userID := range userIds {
+		requests[i] = LudusRequest{
+			Method: "GET",
+			URL:    config.LudusUrl + "/range/logs/?userID=" + userID,
+			UserID: userID,
+		}
+	}
+
+	responses := MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+	flagPattern := regexp.MustCompile(`&%&(.*?)&%&`)
+	var ctfdUsers []CtfdUser
+
+	for _, resp := range responses {
+		userDetails, exists := userDetailMap[resp.UserID]
+		if !exists {
+			continue // Skip users not found in pool data
+		}
+
+		ctfdUser := CtfdUser{
+			User:     userDetails.Username,
+			Password: RandomString(6),
+			Team:     userDetails.Team,
+			Flags:    ExtractUserFlags(resp, flagPattern),
+		}
+
+		ctfdUsers = append(ctfdUsers, ctfdUser)
+	}
+	return ctfdUsers
+}
+
+// ExtractUserFlags extracts flags from a single user's log response
+func ExtractUserFlags(resp LudusResponse, flagPattern *regexp.Regexp) []Flag {
+	var flags []Flag
+
+	if resp.Error != nil || resp.Response == nil {
+		return flags
+	}
+
+	var logResult LogResult
+	if data, err := json.Marshal(resp.Response); err == nil {
+		if err := json.Unmarshal(data, &logResult); err != nil {
+			return flags
+		}
+	} else {
+		return flags
+	}
+
+	match := flagPattern.FindStringSubmatch(logResult.Result)
+	if len(match) <= 1 {
+		return flags
+	}
+
+	content := strings.ReplaceAll(match[1], "\\", "")
+
+	var jsonContent map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &jsonContent); err != nil {
+		return flags
+	}
+
+	for key, value := range jsonContent {
+		flags = append(flags, Flag{
+			Variable: key,
+			Contents: value,
+		})
+	}
+	return flags
 }

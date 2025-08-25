@@ -23,7 +23,7 @@ const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 // GenerateUniqueID generates a unique 6-character alphanumeric ID and ensures it's unique in the given folder.
 func GenerateUniqueID(basePath string) (string, error) {
 	for {
-		id := randomString(6)
+		id := RandomString(6)
 		if _, err := os.Stat(filepath.Join(basePath, id)); os.IsNotExist(err) {
 			return id, nil
 		}
@@ -31,7 +31,7 @@ func GenerateUniqueID(basePath string) (string, error) {
 }
 
 // randomString generates a random alphanumeric string of the given length.
-func randomString(length int) string {
+func RandomString(length int) string {
 	b := make([]byte, length)
 	_, err := rand.Read(b)
 	if err != nil {

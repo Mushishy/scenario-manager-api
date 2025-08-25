@@ -41,8 +41,8 @@ func PostPool(c *gin.Context) {
 		input["usersAndTeams"] = utils.ProcessUsersAndTeams(usersAndTeams)
 	}
 
-	// Validate MainUser for SHARED or INDIVIDUAL types
-	if input["type"] == "SHARED" || input["type"] == "INDIVIDUAL" {
+	// Validate MainUser for SHARED or CTFD types
+	if input["type"] == "SHARED" || input["type"] == "CTFD" {
 		if mainUser, ok := input["mainUser"].(string); !ok || mainUser == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 			return
@@ -68,47 +68,6 @@ func PostPool(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully", "id": poolId})
-}
-
-// TODO
-// when I add users I have to remove flags.json
-func PatchPoolUsers(c *gin.Context) {
-	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
-	if !ok {
-		return
-	}
-
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
-	if !ok {
-		return
-	}
-
-	input, ok := utils.ValidateJSONSchema(c, "file://schemas/pool_users_schema.json")
-	if !ok {
-		return
-	}
-
-	// Process UsersAndTeams
-	if usersAndTeams, ok := input["usersAndTeams"].([]interface{}); ok && len(usersAndTeams) > 0 {
-		if err := utils.ValidateUsersAndTeams(usersAndTeams); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-			return
-		}
-		input["usersAndTeams"] = utils.ProcessUsersAndTeams(usersAndTeams)
-	}
-
-	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
-	if !ok {
-		return
-	}
-
-	poolData["usersAndTeams"] = input["usersAndTeams"]
-
-	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Updated successfully"})
 }
 
 func PatchPoolTopology(c *gin.Context) {
@@ -199,6 +158,7 @@ func GetPool(c *gin.Context) {
 		}
 
 		poolData["poolId"] = poolId
+		poolData["ctfdData"] = utils.HasCtfdData(poolPath)
 		c.JSON(http.StatusOK, poolData)
 		return
 	}

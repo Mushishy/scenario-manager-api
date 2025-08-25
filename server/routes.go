@@ -76,8 +76,8 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// Data route
 	r.GET("/ctfd/data", validateAPIKey, handlers.GetCtfdData)
-	r.GET("/ctfd/data/logins", validateAPIKey, handlers.GetCtfdLogins)
 	r.PUT("/ctfd/data", validateAPIKey, handlers.PutCtfdData)
+	r.GET("/ctfd/data/logins", validateAPIKey, handlers.GetCtfdLogins)
 
 	// Topology route
 	r.GET("/topology", validateAPIKey, handlers.GetTopology)
@@ -86,7 +86,6 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// Pool route
 	r.POST("/pool", validateAPIKey, handlers.PostPool)
-	r.PATCH("/pool/users", validateAPIKey, handlers.PatchPoolUsers)
 	r.PATCH("/pool/topology", validateAPIKey, handlers.PatchPoolTopology)
 	r.PATCH("/pool/note", validateAPIKey, handlers.PatchPoolNote)
 	r.GET("/pool", validateAPIKey, handlers.GetPool)
