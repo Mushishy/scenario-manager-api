@@ -59,18 +59,38 @@ func ImportUsers(c *gin.Context) {
 }
 
 func DeleteUsers(c *gin.Context) {
-	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
-	if !ok {
-		return
+	poolId := utils.GetOptionalQueryParam(c, "poolId")
+
+	var userIds []string
+	var err error
+
+	if poolId != "" {
+		// Delete users by poolId (existing functionality)
+		userIds, err = utils.GetUserIdsFromPool(poolId)
+		if err != nil {
+			if err.Error() == "pool not found" {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			}
+			return
+		}
+	} else {
+		// Delete users by userIds from request body
+		var requestBody struct {
+			UserIds []string `json:"userIds" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&requestBody); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			return
+		}
+
+		userIds = requestBody.UserIds
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	if len(userIds) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No users to delete"})
 		return
 	}
 
@@ -135,8 +155,8 @@ func CheckUsers(c *gin.Context) {
 	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
+	// Collect IDs of users that don't exist
+	var missingUserIds []string
 	for _, resp := range responses {
 		exists := false
 
@@ -150,11 +170,15 @@ func CheckUsers(c *gin.Context) {
 			}
 		}
 
-		results = append(results, gin.H{
-			"userId": resp.UserID,
-			"exists": exists,
-		})
+		if !exists {
+			missingUserIds = append(missingUserIds, resp.UserID)
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"results": results})
+	allExist := len(missingUserIds) == 0
+
+	c.JSON(http.StatusOK, gin.H{
+		"missingUserIds": missingUserIds,
+		"allExist":       allExist,
+	})
 }

@@ -10,7 +10,7 @@ servers:
 components:
   securitySchemes:
     ApiKeyAuth: 
-      type: apiKey
+      type: apiKey 
       in: header
       name: X-API-Key
   
@@ -274,7 +274,6 @@ paths:
                   maxLength: 15
                   example: "Training"
               required:
-                - createdBy  # Fixed: was "name"
                 - type
                 - topologyId
                 - note  # Added: this is required in your schema
@@ -346,6 +345,11 @@ paths:
                       createdBy:
                         type: string
                         example: "admin"
+                      createdAt:
+                        type: string
+                        format: date-time
+                        description: When the pool was created
+                        example: "2025-08-30T14:30:45Z"
                       type:
                         type: string
                         enum: ["CTFD", "SHARED", "INDIVIDUAL"]
@@ -400,6 +404,11 @@ paths:
                         createdBy:
                           type: string
                           example: "admin"
+                        createdAt:
+                          type: string
+                          format: date-time
+                          description: When the pool was created
+                          example: "2025-08-30T14:30:45Z"
                         type:
                           type: string
                           enum: ["CTFD", "SHARED", "INDIVIDUAL"]
@@ -510,11 +519,8 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
+                $ref: '#/components/schemas/Error'
+
         '404':
           description: Not Found
           content:
@@ -577,11 +583,8 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
+                $ref: '#/components/schemas/Error'
+                
         '404':
           description: Not Found
           content:
@@ -602,6 +605,126 @@ paths:
                   error:
                     type: string
                     example: "Internal Server Error"
+
+  /pool/users:
+    post:
+      summary: Check if user IDs exist in pools
+      description: Check if specific user IDs already exist in any pool across the system
+      tags:
+        - Pool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  example: ["BATCHuser1", "BATCHuser2", "BATCHalicedanmayers"]
+              required:
+                - userIds
+              additionalProperties: false
+      responses:
+        '200':
+          description: User ID check results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    userId:
+                      type: string
+                      example: "BATCHuser1"
+                    exists:
+                      type: boolean
+                      description: Whether this user ID exists in any pool
+                      example: true
+        '400':
+          description: Bad Request - Invalid request body or validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Add users to pool
+      description: Add new users to an existing pool, combining them with existing users
+      tags:
+        - Pool
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to add users to
+          example: "ABC123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - usersAndTeams
+              properties:
+                usersAndTeams:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - user
+                    properties:
+                      user:
+                        type: string
+                        description: Full name of the user
+                        example: "Alice Dan Mayers"
+                      team:
+                        type: string
+                        description: Team name (optional, but if one user has a team, all must have teams)
+                        example: "Red Team"
+      responses:
+        '200':
+          description: Users added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Users added successfully"
+        '400':
+          description: Bad Request - Invalid request body, no users provided, or team consistency violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # Ctfd Data
   /ctfd/data:
@@ -721,15 +844,12 @@ paths:
                               value:
                                 type: string
         '400':
-          description: Bad Request - Invalid poolId or missing required parameter
+          description: Bad Request
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
+                $ref: '#/components/schemas/Error'
+                
         '401':
           description: Unauthorized - Invalid or missing API key
           content:
@@ -790,11 +910,8 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Bad Request"
+                $ref: '#/components/schemas/Error'
+                
         '404':
           description: Not Found
           content:
@@ -857,19 +974,32 @@ paths:
 
   /users/delete:
     post:
-      summary: Delete users from pool
-      description: Delete all users from a pool in Ludus
+      summary: Delete users
+      description: Delete users either by pool ID or by providing specific user IDs in request body
       tags:
         - Ludus User Management
       parameters:
         - name: poolId
           in: query
-          required: true
+          required: false
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
+          description: Pool ID to get users from (optional - if not provided, userIds must be in request body)
           example: "ABC123"
+      requestBody:
+        description: User IDs to delete (required if poolId not provided)
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BATCHuser1", "BATCHuser2"]
       responses:
         '200':
           description: Delete results
@@ -888,8 +1018,10 @@ paths:
                           example: "BATCHuser1"
                         response:
                           type: object
+                          description: Ludus API response for successful deletion
                         error:
                           type: string
+                          description: Error message if deletion failed
         '400':
           description: Bad Request
           content:
@@ -902,11 +1034,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
   /users/check:
     get:
       summary: Check users from pool
-      description: Check if all users from a pool exist in Ludus
+      description: Check which users from a pool exist in Ludus
       tags:
         - Ludus User Management
       parameters:
@@ -926,17 +1064,16 @@ paths:
               schema:
                 type: object
                 properties:
-                  results:
+                  missingUserIds:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        exists:
-                          type: boolean
-                          example: true
+                      type: string
+                    description: Array of user IDs that don't exist in Ludus
+                    example: ["BATCHuser2", "BATCHuser4"]
+                  allExist:
+                    type: boolean
+                    description: Whether all users from the pool exist in Ludus
+                    example: false
         '400':
           description: Bad Request
           content:
@@ -949,12 +1086,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # Ludus Range Config
   /range/config:
-    put:
+    post:
       summary: Set range configuration for pool users
-      description: Upload topology configuration to all users in a pool
+      description: Upload topology configuration to all users in a pool based on the pool's assigned topology
       tags:
         - Ludus Range Config
       parameters:
@@ -964,16 +1107,8 @@ paths:
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
+          description: Pool ID to get users and topology from
           example: "ABC123"
-        - name: topologyId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Topology ID to upload
-          example: "XYZ789"
       responses:
         '200':
           description: Configuration upload results
@@ -992,8 +1127,10 @@ paths:
                           example: "BATCHuser1"
                         response:
                           type: object
+                          description: Ludus API response for successful upload
                         error:
                           type: string
+                          description: Error message if upload failed
         '400':
           description: Bad Request
           content:
@@ -1012,10 +1149,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
+    
     get:
-      summary: Get range configuration for pool users
-      description: Retrieve current range configuration from all users in a pool
+      summary: Check if user configurations match pool topology
+      description: Check if all users in a pool have range configurations that match the pool's assigned topology
       tags:
         - Ludus Range Config
       parameters:
@@ -1025,31 +1162,20 @@ paths:
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
+          description: Pool ID to check users from
           example: "ABC123"
       responses:
         '200':
-          description: Configuration retrieval results
+          description: Configuration match result
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        config:
-                          type: object
-                        error:
-                          type: string
-                  allSame:
+                  matchPoolTopology:
                     type: boolean
-                    description: Whether all user configurations are identical
+                    description: Whether all user configurations match the pool's topology
+                    example: true
         '400':
           description: Bad Request
           content:
@@ -1057,12 +1183,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Pool Not Found
+          description: Pool or Topology Not Found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
   # Ldus Range Sharing
   /range/access:
     get:
@@ -1303,9 +1435,15 @@ paths:
                           example: "BATCHuser1"
                         state:
                           type: string
+                          enum: ["DEPLOYED", "DEPLOYING", "DESTROYED", "DESTROYING", "ERROR", "ABORTED", "unknown"]
                           example: "DEPLOYED"
                         error:
                           type: string
+                          description: Error message if status check failed
+                  allDeployed:
+                    type: boolean
+                    description: Whether all users have status "DEPLOYED"
+                    example: true
         '400':
           description: Bad Request
           content:
@@ -1314,6 +1452,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
           content:
             application/json:
               schema:

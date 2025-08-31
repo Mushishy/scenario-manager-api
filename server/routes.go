@@ -88,6 +88,8 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/pool", validateAPIKey, handlers.PostPool)
 	r.PATCH("/pool/topology", validateAPIKey, handlers.PatchPoolTopology)
 	r.PATCH("/pool/note", validateAPIKey, handlers.PatchPoolNote)
+	r.PATCH("/pool/users", validateAPIKey, handlers.PatchPoolUsers)
+	r.POST("/pool/users", validateAPIKey, handlers.CheckUserIds)
 	r.GET("/pool", validateAPIKey, handlers.GetPool)
 	r.DELETE("/pool", validateAPIKey, handlers.DeletePool)
 
@@ -97,7 +99,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/users/check", validateAPIKey, handlers.CheckUsers)
 
 	// Range config
-	r.PUT("/range/config", validateAPIKey, handlers.SetRangeConfig)
+	r.POST("/range/config", validateAPIKey, handlers.SetRangeConfig)
 	r.GET("/range/config", validateAPIKey, handlers.GetRangeConfig)
 
 	// Range deployment

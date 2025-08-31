@@ -86,11 +86,14 @@ func CheckRangeStatus(c *gin.Context) {
 	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
+	// Convert to results format and check if all are deployed
 	var results []gin.H
+	allDeployed := true
+
 	for _, resp := range responses {
 		if resp.Error != nil {
 			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
+			allDeployed = false
 		} else {
 			state := "unknown"
 			if resp.Response != nil {
@@ -98,11 +101,19 @@ func CheckRangeStatus(c *gin.Context) {
 					state = rangeState.(string)
 				}
 			}
+
+			if state != "DEPLOYED" {
+				allDeployed = false
+			}
+
 			results = append(results, gin.H{"userId": resp.UserID, "state": state})
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"results": results})
+	c.JSON(http.StatusOK, gin.H{
+		"results":     results,
+		"allDeployed": allDeployed,
+	})
 }
 
 func RedeployRange(c *gin.Context) {

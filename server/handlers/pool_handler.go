@@ -38,6 +38,17 @@ func PostPool(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 			return
 		}
+
+		// Validate mainUser is not in usersAndTeams (only if mainUser is provided)
+		if mainUser, exists := input["mainUser"]; exists && mainUser != nil {
+			if mainUserStr, ok := mainUser.(string); ok && mainUserStr != "" {
+				if err := utils.ValidateMainUserNotInUsersAndTeams(mainUserStr, usersAndTeams); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+					return
+				}
+			}
+		}
+
 		input["usersAndTeams"] = utils.ProcessUsersAndTeams(usersAndTeams)
 	}
 
@@ -136,6 +147,72 @@ func PatchPoolNote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Updated successfully"})
 }
 
+func PatchPoolUsers(c *gin.Context) {
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
+	}
+
+	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
+
+	input, ok := utils.ValidateJSONSchema(c, "file://schemas/pool_users_schema.json")
+	if !ok {
+		return
+	}
+
+	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	// Get new users from request
+	newUsersAndTeams, ok := input["usersAndTeams"].([]interface{})
+	if !ok || len(newUsersAndTeams) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	// Process new users to add userId (but don't validate yet)
+	processedNewUsers := utils.ProcessUsersAndTeams(newUsersAndTeams)
+
+	// Get existing users
+	var existingUsersAndTeams []interface{}
+	if existing, exists := poolData["usersAndTeams"]; exists {
+		if existingUsers, ok := existing.([]interface{}); ok {
+			existingUsersAndTeams = existingUsers
+		}
+	}
+
+	// Combine existing and new users
+	combinedUsers := append(existingUsersAndTeams, processedNewUsers...)
+
+	// Validate the combined user list (includes team consistency check)
+	if err := utils.ValidateUsersAndTeams(combinedUsers); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	// Validate mainUser is not in combined users (only if mainUser exists)
+	if mainUser, exists := poolData["mainUser"].(string); exists && mainUser != "" {
+		if err := utils.ValidateMainUserNotInUsersAndTeams(mainUser, combinedUsers); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			return
+		}
+	}
+
+	// Update pool data with combined users
+	poolData["usersAndTeams"] = combinedUsers
+
+	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Users added successfully"})
+}
+
 func GetPool(c *gin.Context) {
 	poolId := utils.GetOptionalQueryParam(c, "poolId")
 	userIds := utils.GetOptionalQueryParam(c, "userIds")
@@ -190,4 +267,38 @@ func DeletePool(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func CheckUserIds(c *gin.Context) {
+	input, ok := utils.ValidateJSONSchema(c, "file://schemas/check_userids_schema.json")
+	if !ok {
+		return
+	}
+
+	userIds, ok := input["userIds"].([]interface{})
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	// Get all existing userIds from all pools
+	existingUserIds, err := utils.GetAllUserIdsFromPools(config.PoolFolder)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	// Check each userId
+	var results []map[string]interface{}
+	for _, userIdInterface := range userIds {
+		if userId, ok := userIdInterface.(string); ok {
+			exists := existingUserIds[userId]
+			results = append(results, map[string]interface{}{
+				"userId": userId,
+				"exists": exists,
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, results)
 }

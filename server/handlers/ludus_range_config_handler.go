@@ -14,10 +14,18 @@ func SetRangeConfig(c *gin.Context) {
 		return
 	}
 
-	topologyId, ok := utils.GetRequiredQueryParam(c, "topologyId")
+	// Get pool data to retrieve topology ID
+	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
+
+	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	topologyId := poolData["topologyId"].(string)
 
 	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
@@ -65,6 +73,30 @@ func GetRangeConfig(c *gin.Context) {
 		return
 	}
 
+	// Get pool data to retrieve topology ID
+	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
+
+	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	topologyId := poolData["topologyId"].(string)
+
+	// Get the expected topology configuration
+	topologyPath, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId)
+	if !ok {
+		return
+	}
+
+	expectedTopologyFile, err := utils.ReadFirstFileInDir(topologyPath)
+	if utils.HandleFileReadError(c, err) {
+		return
+	}
+
 	userIds, err := utils.GetUserIdsFromPool(poolId)
 	if err != nil {
 		if err.Error() == "pool not found" {
@@ -77,43 +109,51 @@ func GetRangeConfig(c *gin.Context) {
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(userIds))
-	for i, userID := range userIds {
-		requests[i] = utils.LudusRequest{
+	// Check each user's config against the expected topology
+	matchPoolTopology := true
+
+	for _, userID := range userIds {
+		request := utils.LudusRequest{
 			Method:  "GET",
 			URL:     config.LudusUrl + "/range/config/?userID=" + userID,
 			Payload: nil,
 			UserID:  userID,
 		}
-	}
 
-	// Execute concurrent requests
-	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+		response := utils.MakeConcurrentLudusRequests([]utils.LudusRequest{request}, apiKey, 1)[0]
 
-	// Convert to results format and check if all configs are the same
-	var results []gin.H
-	var firstConfig interface{}
-	allSame := true
+		if response.Error != nil {
+			matchPoolTopology = false
+			break
+		}
 
-	for i, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-			allSame = false
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "config": resp.Response})
-
-			// Check if all configs are the same
-			if i == 0 {
-				firstConfig = resp.Response
-			} else if !utils.CompareConfigs(firstConfig, resp.Response) {
-				allSame = false
+		// Extract the actual config content from the response
+		var userConfigContent string
+		if responseMap, ok := response.Response.(map[string]interface{}); ok {
+			if result, exists := responseMap["result"]; exists {
+				if resultStr, ok := result.(string); ok {
+					userConfigContent = resultStr
+				} else {
+					matchPoolTopology = false
+					break
+				}
+			} else {
+				matchPoolTopology = false
+				break
 			}
+		} else {
+			matchPoolTopology = false
+			break
+		}
+
+		// Compare the topology content with the user's config content
+		if !utils.CompareConfigs(expectedTopologyFile.Content, userConfigContent) {
+			matchPoolTopology = false
+			break
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"results": results,
-		"allSame": allSame,
+		"matchPoolTopology": matchPoolTopology,
 	})
 }

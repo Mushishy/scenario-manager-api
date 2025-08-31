@@ -86,6 +86,12 @@ func GetAllPools(poolFolder string) ([]map[string]interface{}, error) {
 			// Set ctfdData flag based on file existence
 			poolData["ctfdData"] = HasCtfdData(poolPath)
 
+			// Get creation time from pool.json file
+			poolJsonPath := filepath.Join(poolPath, "pool.json")
+			if fileInfo, err := os.Stat(poolJsonPath); err == nil {
+				poolData["createdAt"] = fileInfo.ModTime()
+			}
+
 			pools = append(pools, poolData)
 		}
 	}

@@ -135,6 +135,30 @@ func DeleteTopology(c *gin.Context) {
 		return
 	}
 
+	// Check if topology is used in any pool
+	poolDirs, err := os.ReadDir(config.PoolFolder)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	for _, poolDir := range poolDirs {
+		if poolDir.IsDir() {
+			poolPath := filepath.Join(config.PoolFolder, poolDir.Name())
+			poolData, err := utils.ReadPoolData(poolPath)
+			if err != nil {
+				continue // Skip pools we can't read
+			}
+
+			if poolTopologyId, exists := poolData["topologyId"]; exists {
+				if poolTopologyId == topologyId {
+					c.JSON(http.StatusConflict, gin.H{"error": "Topology is in use by pool " + poolDir.Name()})
+					return
+				}
+			}
+		}
+	}
+
 	if err := os.RemoveAll(topologyPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 		return
