@@ -47,12 +47,16 @@ type UserTeam struct {
 }
 
 type Pool struct {
-	CreatedBy     string     `json:"createdBy"`
-	MainUser      string     `json:"mainUser"`
-	Note          string     `json:"note"`
-	TopologyId    string     `json:"topologyId"`
-	Type          string     `json:"type"`
-	UsersAndTeams []UserTeam `json:"usersAndTeams"`
+	CreatedBy     string `json:"createdBy"`
+	Note          string `json:"note"`
+	TopologyId    string `json:"topologyId"`
+	Type          string `json:"type"`
+	MainUser      string `json:"mainUser,omitempty"`
+	UsersAndTeams []struct {
+		User   string `json:"user"`
+		UserId string `json:"userId"`
+		Team   string `json:"team,omitempty"`
+	} `json:"usersAndTeams"`
 }
 
 // CTFd-related types

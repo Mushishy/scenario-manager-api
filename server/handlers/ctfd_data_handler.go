@@ -114,7 +114,7 @@ func PutCtfdData(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId)
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
 	if err != nil {
 		if err.Error() == "pool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})

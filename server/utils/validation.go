@@ -16,6 +16,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type UserRetrievalOption int
+
+const (
+	SharedMainUserOnly UserRetrievalOption = iota
+	SharedUsersAndTeamsOnly
+	SharedAllUsers // Both main user and users from usersAndTeams
+)
+
 var validFolderIDRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -146,8 +154,11 @@ func ValidateFolderWithResponse(c *gin.Context, baseFolder, folderId string) (st
 	}
 }
 
-// GetUserIdsFromPool helper function to get userIds from pool
-func GetUserIdsFromPool(poolId string) ([]string, error) {
+// GetUserIdsFromPool helper function to get userIds from pool based on pool type and option
+// CheckUsers, ImportUsers, DeleteUsers problem, Share, Unshare, Access
+// For SHARED/CTFD pools: includes MainUser and/or usersAndTeams based on option
+// For other pools: always includes usersAndTeams
+func GetUserIdsFromPool(poolId string, option UserRetrievalOption) ([]string, error) {
 	poolPath, err := ValidateFolderID(config.PoolFolder, poolId)
 	switch err {
 	case os.ErrInvalid:
@@ -167,19 +178,30 @@ func GetUserIdsFromPool(poolId string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read pool file: %w", err)
 	}
 
-	var pool struct {
-		UsersAndTeams []struct {
-			UserId string `json:"userId"`
-		} `json:"usersAndTeams"`
-	}
+	var pool Pool
 
 	if err := json.Unmarshal(data, &pool); err != nil {
 		return nil, fmt.Errorf("failed to parse pool file: %w", err)
 	}
 
 	var userIds []string
-	for _, userTeam := range pool.UsersAndTeams {
-		userIds = append(userIds, userTeam.UserId)
+
+	if pool.Type == "SHARED" || pool.Type == "CTFD" {
+		// For SHARED/CTFD pools: include MainUser based on option
+		if pool.MainUser != "" && (option == SharedMainUserOnly || option == SharedAllUsers) {
+			userIds = append(userIds, pool.MainUser)
+		}
+		// Include usersAndTeams based on option
+		if option == SharedAllUsers || option == SharedUsersAndTeamsOnly {
+			for _, userTeam := range pool.UsersAndTeams {
+				userIds = append(userIds, userTeam.UserId)
+			}
+		}
+	} else {
+		// For other pool types: always include usersAndTeams
+		for _, userTeam := range pool.UsersAndTeams {
+			userIds = append(userIds, userTeam.UserId)
+		}
 	}
 
 	return userIds, nil

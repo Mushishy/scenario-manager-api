@@ -14,7 +14,7 @@ func ImportUsers(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId)
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
 	if err != nil {
 		if err.Error() == "pool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
@@ -66,7 +66,7 @@ func DeleteUsers(c *gin.Context) {
 
 	if poolId != "" {
 		// Delete users by poolId (existing functionality)
-		userIds, err = utils.GetUserIdsFromPool(poolId)
+		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
 		if err != nil {
 			if err.Error() == "pool not found" {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
@@ -129,7 +129,7 @@ func CheckUsers(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId)
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
 	if err != nil {
 		if err.Error() == "pool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})

@@ -1353,6 +1353,95 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /range/shared:
+    get:
+      summary: Check range sharing status for target user
+      description: |
+        Check the range sharing status between pool users and a target user.
+        
+        The function:
+        1. Gets all users from the specified pool
+        2. Queries the Ludus API for current range access permissions
+        3. Determines if the targetId exists in any sharing relationships
+        4. If found, checks if all pool users are sharing with the target
+        5. Returns both shared and unshared status
+        
+        Response combinations:
+        - `{"shared": false, "unshared": true}` - Target has no shared ranges at all
+        - `{"shared": false, "unshared": false}` - Target has some shared ranges, but not from all pool users
+        - `{"shared": true, "unshared": false}` - Target has shared ranges from all pool users
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID to get users from
+          example: "ABC123"
+        - name: targetId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Target user ID to check shared access for
+          example: "instructor1"
+      responses:
+        '200':
+          description: Range sharing status result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shared:
+                    type: boolean
+                    description: True if ALL pool users have shared their ranges with the target user
+                    example: true
+                  unshared:
+                    type: boolean
+                    description: True if the target user has NO shared ranges at all (does not appear in any sharing relationships)
+                    example: false
+                required:
+                  - shared
+                  - unshared
+              examples:
+                no_sharing:
+                  summary: Target has no shared ranges
+                  value:
+                    shared: false
+                    unshared: true
+                partial_sharing:
+                  summary: Target has some shared ranges, but not from all pool users
+                  value:
+                    shared: false
+                    unshared: false
+                complete_sharing:
+                  summary: Target has shared ranges from all pool users
+                  value:
+                    shared: true
+                    unshared: false
+        '400':
+          description: Bad Request - Invalid pool ID or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error - Failed to communicate with Ludus API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   # Ludus Range Deployment
   /range/deploy:
     post:

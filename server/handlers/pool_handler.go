@@ -236,6 +236,13 @@ func GetPool(c *gin.Context) {
 
 		poolData["poolId"] = poolId
 		poolData["ctfdData"] = utils.HasCtfdData(poolPath)
+
+		// Get creation time from pool.json file (same logic as GetAllPools)
+		poolJsonPath := filepath.Join(poolPath, "pool.json")
+		if fileInfo, err := os.Stat(poolJsonPath); err == nil {
+			poolData["createdAt"] = fileInfo.ModTime()
+		}
+
 		c.JSON(http.StatusOK, poolData)
 		return
 	}

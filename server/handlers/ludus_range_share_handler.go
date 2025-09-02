@@ -5,11 +5,21 @@ import (
 	"bytes"
 	"dulus/server/config"
 	"dulus/server/utils"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
+
+// RangeAccessItem represents a single range access entry from the Ludus API
+type RangeAccessItem struct {
+	TargetUserID  string   `json:"targetUserID"`
+	SourceUserIDs []string `json:"sourceUserIDs"`
+}
+
+// RangeAccessResponse represents the response from /range/access endpoint
+type RangeAccessResponse []RangeAccessItem
 
 func GetRangeAccess(c *gin.Context) {
 	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
@@ -17,7 +27,7 @@ func GetRangeAccess(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId)
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
 	if err != nil {
 		if err.Error() == "pool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
@@ -114,7 +124,7 @@ func ShareRange(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId)
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
 	if err != nil {
 		if err.Error() == "pool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
@@ -170,7 +180,7 @@ func UnshareRange(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId)
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
 	if err != nil {
 		if err.Error() == "pool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
@@ -216,6 +226,26 @@ func UnshareRange(c *gin.Context) {
 }
 
 func GetSharedRanges(c *gin.Context) {
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
+	}
+
+	targetId, ok := utils.GetRequiredQueryParam(c, "targetId")
+	if !ok {
+		return
+	}
+
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
+	if err != nil {
+		if err.Error() == "pool not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
 	apiKey := c.Request.Header.Get("X-API-Key")
 	response, err := utils.MakeLudusRequest("GET", config.LudusUrl+"/range/access", nil, apiKey)
 	if err != nil {
@@ -223,5 +253,27 @@ func GetSharedRanges(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"shared_ranges": response})
+	// Parse response into our struct
+	var rangeAccess RangeAccessResponse
+	responseBytes, _ := json.Marshal(response)
+	json.Unmarshal(responseBytes, &rangeAccess)
+
+	shared := false
+	unshared := true
+
+	// Find the target user and check if all pool users are in sourceUserIDs
+	for _, item := range rangeAccess {
+		if item.TargetUserID == targetId {
+			unshared = false
+			if len(userIds) > 0 && utils.ContainsAll(item.SourceUserIDs, userIds) {
+				shared = true
+			}
+			break
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"shared":   shared,
+		"unshared": unshared,
+	})
 }
