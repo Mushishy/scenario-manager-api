@@ -65,6 +65,12 @@ func EnsureDirectoryExists(path string) error {
 	return os.MkdirAll(path, os.ModePerm)
 }
 
+// FileExists checks if a file exists
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}
+
 // GetAllItems returns all items in a directory with their basic info
 func GetAllItems(baseFolder string) ([]ItemInfo, error) {
 	var items []ItemInfo

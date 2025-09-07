@@ -1,0 +1,43 @@
+[Unit]
+Description=Scenario Manager API
+After=network.target
+
+[Service]
+Type=simple
+User=ludus
+Group=ludus
+WorkingDirectory=/opt/scenario-manager-api
+ExecStart=/opt/scenario-manager-api/scenario-manager-api
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=scenario-manager-api
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+ProtectSystem=strict
+DevicePolicy=closed
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectKernelLogs=true
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+
+# Allow read write
+ReadWritePaths=/opt/scenario-manager-api/data/scenarios
+ReadWritePaths=/opt/scenario-manager-api/data/topologies
+ReadWritePaths=/opt/scenario-manager-api/data/pools
+
+# Allow read 
+ReadOnlyPaths=/opt/ludus/ludus.db
+ReadOnlyPaths=/opt/ludus/cert.pem
+ReadOnlyPaths=/opt/ludus/key.pem
+ReadOnlyPaths=/etc/pve/nodes/ludus/pve-ssl.pem
+ReadOnlyPaths=/etc/pve/nodes/ludus/pve-ssl.key
+
+# Environment variables
+Environment=GIN_MODE=release
+
+[Install]
+WantedBy=multi-user.target

@@ -6,3 +6,4 @@ setup
 /server/data/pools/*
 /server/data/input/*
 .DS_Store
+/server/scenario-manager-api
