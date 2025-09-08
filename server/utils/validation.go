@@ -154,10 +154,6 @@ func ValidateFolderWithResponse(c *gin.Context, baseFolder, folderId string) (st
 	}
 }
 
-// GetUserIdsFromPool helper function to get userIds from pool based on pool type and option
-// CheckUsers, ImportUsers, DeleteUsers problem, Share, Unshare, Access
-// For SHARED/CTFD pools: includes MainUser and/or usersAndTeams based on option
-// For other pools: always includes usersAndTeams
 func GetUserIdsFromPool(poolId string, option UserRetrievalOption) ([]string, error) {
 	poolPath, err := ValidateFolderID(config.PoolFolder, poolId)
 	switch err {
@@ -205,4 +201,86 @@ func GetUserIdsFromPool(poolId string, option UserRetrievalOption) ([]string, er
 	}
 
 	return userIds, nil
+}
+
+// IsMainUserAlreadyUsed checks if a main user is already assigned to any pool
+func IsMainUserAlreadyUsed(mainUser string) (bool, error) {
+	if mainUser == "" {
+		return false, fmt.Errorf("main user cannot be empty")
+	}
+
+	// Read all directories in the pool folder
+	poolDirs, err := os.ReadDir(config.PoolFolder)
+	if err != nil {
+		return false, fmt.Errorf("failed to read pool folder: %w", err)
+	}
+
+	for _, dir := range poolDirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		poolJsonPath := filepath.Join(config.PoolFolder, dir.Name(), "pool.json")
+
+		// Check if pool.json exists
+		if _, err := os.Stat(poolJsonPath); os.IsNotExist(err) {
+			continue
+		}
+
+		// Read and parse pool.json
+		data, err := os.ReadFile(poolJsonPath)
+		if err != nil {
+			// Skip this pool if we can't read it, don't fail the entire operation
+			continue
+		}
+
+		var pool Pool
+		if err := json.Unmarshal(data, &pool); err != nil {
+			// Skip this pool if we can't parse it, don't fail the entire operation
+			continue
+		}
+
+		// Check if this pool uses the main user
+		if pool.MainUser == mainUser {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func GetMainUserFromPool(poolId string) (string, error) {
+	poolPath, err := ValidateFolderID(config.PoolFolder, poolId)
+	switch err {
+	case os.ErrInvalid:
+		return "", fmt.Errorf("invalid pool ID")
+	case os.ErrNotExist:
+		return "", fmt.Errorf("pool not found")
+	case nil:
+		// Success, continue
+	default:
+		return "", fmt.Errorf("failed to validate pool: %w", err)
+	}
+
+	poolJsonPath := filepath.Join(poolPath, "pool.json")
+
+	data, err := os.ReadFile(poolJsonPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read pool file: %w", err)
+	}
+
+	var pool Pool
+
+	if err := json.Unmarshal(data, &pool); err != nil {
+		return "", fmt.Errorf("failed to parse pool file: %w", err)
+	}
+
+	if pool.Type == "SHARED" || pool.Type == "CTFD" {
+		if pool.MainUser == "" {
+			return "", fmt.Errorf("no main user found in pool")
+		}
+		return pool.MainUser, nil
+	}
+
+	return "", nil
 }

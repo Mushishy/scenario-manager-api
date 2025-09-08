@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"dulus/server/config"
 	"dulus/server/utils"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -53,11 +54,12 @@ func GetRangeAccess(c *gin.Context) {
 	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Create ZIP file in memory
-	var zipBuffer bytes.Buffer
-	zipWriter := zip.NewWriter(&zipBuffer)
+	// Collect valid configs first
+	var validConfigs []struct {
+		userID  string
+		content string
+	}
 
-	var successCount int
 	for _, resp := range responses {
 		if resp.Error != nil {
 			continue // Skip failed requests
@@ -69,48 +71,76 @@ func GetRangeAccess(c *gin.Context) {
 			if result, exists := wireguardResp["result"]; exists {
 				if resultMap, ok := result.(map[string]interface{}); ok {
 					if config, exists := resultMap["wireGuardConfig"]; exists {
-						configContent = fmt.Sprintf("%v", config)
+						if configStr, ok := config.(string); ok {
+							configContent = configStr
+						} else {
+							configContent = fmt.Sprintf("%v", config)
+						}
 					}
 				}
 			}
 		}
 
 		if configContent != "" {
-			// Create file in zip
-			fileName := fmt.Sprintf("%s.conf", resp.UserID)
-			file, err := zipWriter.Create(fileName)
-			if err != nil {
-				continue
-			}
-
-			_, err = file.Write([]byte(configContent))
-			if err != nil {
-				continue
-			}
-			successCount++
+			validConfigs = append(validConfigs, struct {
+				userID  string
+				content string
+			}{
+				userID:  resp.UserID,
+				content: configContent,
+			})
 		}
 	}
 
-	if successCount == 0 {
-		zipWriter.Close()
+	if len(validConfigs) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No configs found"})
 		return
 	}
 
-	// Close zip writer before sending response
-	err = zipWriter.Close()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+	// Create ZIP file in memory
+	var zipBuffer bytes.Buffer
+	zipWriter := zip.NewWriter(&zipBuffer)
+
+	// Create folder structure and add files
+	folderName := "wireguard-configs/"
+
+	for _, config := range validConfigs {
+		fileName := folderName + config.userID + ".conf"
+
+		// Create file in ZIP
+		fileWriter, err := zipWriter.Create(fileName)
+		if err != nil {
+			zipWriter.Close()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create ZIP file"})
+			return
+		}
+
+		// Write content to file
+		_, err = fileWriter.Write([]byte(config.content))
+		if err != nil {
+			zipWriter.Close()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write to ZIP file"})
+			return
+		}
+	}
+
+	// Close ZIP writer properly
+	if err := zipWriter.Close(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to finalize ZIP file"})
 		return
 	}
 
-	// Set headers for file download
-	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", "attachment; filename=wireguard-configs.zip")
-	c.Header("Content-Length", fmt.Sprintf("%d", zipBuffer.Len()))
+	// Get the ZIP data and encode as base64
+	zipData := zipBuffer.Bytes()
+	base64Data := base64.StdEncoding.EncodeToString(zipData)
+	filename := string(poolId) + ".zip"
 
-	// Send zip file
-	c.Data(http.StatusOK, "application/zip", zipBuffer.Bytes())
+	// Return JSON response with base64 encoded ZIP
+	c.JSON(http.StatusOK, gin.H{
+		"filename": filename,
+		"data":     base64Data,
+		"size":     len(zipData),
+	})
 }
 
 func ShareRange(c *gin.Context) {

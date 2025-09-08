@@ -57,6 +57,17 @@ func PostPool(c *gin.Context) {
 		if mainUser, ok := input["mainUser"].(string); !ok || mainUser == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 			return
+		} else {
+			// Check if mainUser is already used in another pool
+			isUsed, err := utils.IsMainUserAlreadyUsed(mainUser)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			if isUsed {
+				c.JSON(http.StatusConflict, gin.H{"error": "Main user is already assigned to another pool"})
+				return
+			}
 		}
 	}
 

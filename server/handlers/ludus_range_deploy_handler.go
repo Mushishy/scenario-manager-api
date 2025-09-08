@@ -60,7 +60,8 @@ func CheckRangeStatus(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
+	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
+
 	if err != nil {
 		if err.Error() == "pool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
@@ -69,6 +70,7 @@ func CheckRangeStatus(c *gin.Context) {
 		}
 		return
 	}
+	mainUser, _ := utils.GetMainUserFromPool(poolId)
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
@@ -91,6 +93,22 @@ func CheckRangeStatus(c *gin.Context) {
 	allDeployed := true
 
 	for _, resp := range responses {
+		// Skip if mainUser is specified and this response is not for the main user
+		if mainUser != "" && resp.UserID != mainUser {
+			if resp.Error != nil {
+				results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
+			} else {
+				state := "unknown"
+				if resp.Response != nil {
+					if rangeState, exists := resp.Response.(map[string]interface{})["rangeState"]; exists {
+						state = rangeState.(string)
+					}
+				}
+				results = append(results, gin.H{"userId": resp.UserID, "state": state})
+			}
+			continue
+		}
+
 		if resp.Error != nil {
 			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
 			allDeployed = false

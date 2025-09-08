@@ -1195,53 +1195,86 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
                 
-  # Ldus Range Sharing
+  # Ludus Range Sharing
   /range/access:
-    get:
-      summary: Get WireGuard access configs for pool users
-      description: Download WireGuard configuration files for all users in a pool as a ZIP file
-      tags:
-        - Ludus Range Sharing
-      parameters:
-        - name: poolId
-          in: query
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
-          example: "ABC123"
-      responses:
-        '200':
-          description: ZIP file containing WireGuard configurations
-          content:
-            application/zip:
-              schema:
-                type: string
-                format: binary
-          headers:
-            Content-Disposition:
-              schema:
-                type: string
-                example: 'attachment; filename=wireguard-configs.zip'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Pool or configs not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+      get:
+        summary: Get WireGuard access configs for pool users
+        description: Download WireGuard configuration files for all users in a pool as a base64-encoded ZIP file
+        tags:
+          - Ludus Range Sharing
+        parameters:
+          - name: poolId
+            in: query
+            required: true
+            schema:
+              type: string
+              pattern: "^[a-zA-Z0-9]{6}$"
+            description: Pool ID to get users from
+            example: "ABC123"
+        responses:
+          '200':
+            description: Base64-encoded ZIP file containing WireGuard configurations
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    filename:
+                      type: string
+                      description: Suggested filename for the ZIP file
+                      example: "ABC123.zip"
+                    data:
+                      type: string
+                      format: byte
+                      description: Base64-encoded ZIP file containing WireGuard configs in wireguard-configs/ folder
+                      example: "UEsDBBQAAAAIAG5kJVnzNwAA8T..."
+                    size:
+                      type: integer
+                      description: Size of the ZIP file in bytes
+                      example: 2048
+                  required:
+                    - filename
+                    - data
+                    - size
+                examples:
+                  successful_download:
+                    summary: Successful ZIP file generation
+                    value:
+                      filename: "ABC123.zip"
+                      data: "UEsDBBQAAAAIAG5kJVnzNwAA8TEAAABAAAAA..."
+                      size: 2048
+          '400':
+            description: Bad Request
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+          '404':
+            description: Pool or configs not found
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  no_configs:
+                    summary: No WireGuard configs found
+                    value:
+                      error: "No configs found"
+                  pool_not_found:
+                    summary: Pool not found
+                    value:
+                      error: "Not Found"
+          '500':
+            description: Internal Server Error
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  zip_creation_failed:
+                    summary: ZIP file creation failed
+                    value:
+                      error: "Failed to create ZIP file"
 
   /range/share:
     post:
