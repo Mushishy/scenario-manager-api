@@ -1731,3 +1731,157 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /stats/proxmox:
+    get:
+      summary: Get Proxmox cluster statistics
+      description: Retrieves comprehensive statistics about the Proxmox cluster including users, templates, VMs, topologies, scenarios, roles, pools, and node information
+      operationId: getProxmoxStatistics
+      tags: 
+        - Proxmox Statistics
+      responses:
+        '200':
+          description: Successfully retrieved Proxmox statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - users
+                  - templates
+                  - vms
+                  - numberOfTopologies
+                  - numberOfScenarios
+                  - numberOfRoles
+                  - numberOfPools
+                  - cpuUsagePercentage
+                  - maxCpu
+                  - memoryUsedGiB
+                  - memoryTotalGiB
+                  - memoryFreeGiB
+                  - diskUsedGiB
+                  - diskTotalGiB
+                  - uptimeFormatted
+                properties:
+                  users:
+                    type: integer
+                    description: Total number of users (pools) in the Proxmox cluster (excluding ADMIN and SHARED)
+                    example: 5
+                  templates:
+                    type: integer
+                    description: Total number of VM templates available
+                    example: 6
+                  vms:
+                    type: integer
+                    description: Total number of virtual machines (excluding templates)
+                    example: 4
+                  numberOfTopologies:
+                    type: integer
+                    description: Total number of topology configurations available
+                    minimum: 0
+                    example: 12
+                  numberOfScenarios:
+                    type: integer
+                    description: Total number of CTFd scenarios available
+                    minimum: 0
+                    example: 8
+                  numberOfRoles:
+                    type: integer
+                    description: Total number of Ansible roles available in Ludus
+                    minimum: 0
+                    example: 25
+                  numberOfPools:
+                    type: integer
+                    description: Total number of pools in the system
+                    minimum: 0
+                    example: 7
+                  cpuUsagePercentage:
+                    type: number
+                    format: double
+                    description: Current CPU usage as a percentage
+                    minimum: 0
+                    maximum: 100
+                    example: 22.5
+                  maxCpu:
+                    type: integer
+                    description: Maximum number of CPU cores available
+                    minimum: 1
+                    example: 16
+                  memoryUsedGiB:
+                    type: number
+                    format: double
+                    description: Currently used memory in GiB (Gibibytes)
+                    minimum: 0
+                    example: 6.24
+                  memoryTotalGiB:
+                    type: number
+                    format: double
+                    description: Total memory capacity in GiB (Gibibytes)
+                    minimum: 0
+                    example: 62.76
+                  memoryFreeGiB:
+                    type: number
+                    format: double
+                    description: Available memory in GiB (Gibibytes)
+                    minimum: 0
+                    example: 56.53
+                  diskUsedGiB:
+                    type: number
+                    format: double
+                    description: Currently used disk space in GiB (Gibibytes)
+                    minimum: 0
+                    example: 66.51
+                  diskTotalGiB:
+                    type: number
+                    format: double
+                    description: Total disk capacity in GiB (Gibibytes)
+                    minimum: 0
+                    example: 822.43
+                  uptimeFormatted:
+                    type: string
+                    description: Human-readable uptime format (e.g., "2w 4d 3h")
+                    pattern: '^(\d+w\s)?(\d+d\s)?(\d+h)?$'
+                    example: "2w 4d 3h"
+              example:
+                users: 5
+                templates: 6
+                vms: 4
+                numberOfTopologies: 12
+                numberOfScenarios: 8
+                numberOfRoles: 25
+                numberOfPools: 7
+                cpuUsagePercentage: 22.5
+                maxCpu: 16
+                memoryUsedGiB: 6.24
+                memoryTotalGiB: 62.76
+                memoryFreeGiB: 56.53
+                diskUsedGiB: 66.51
+                diskTotalGiB: 822.43
+                uptimeFormatted: "2w 4d 3h"
+        '401':
+          description: Unauthorized - Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Unauthorized"
+        '500':
+          description: Internal server error - Proxmox configuration missing or connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                configMissing:
+                  summary: Configuration missing
+                  value:
+                    error: "Proxmox configuration missing"
+                authFailed:
+                  summary: Authentication failed
+                  value:
+                    error: "Authentication failed: failed to authenticate: dial tcp 10.2.60.2:8006: connect: connection refused"
+                resourcesFailed:
+                  summary: Failed to fetch resources
+                  value:
+                    error: "Failed to fetch cluster resources: cluster resources request failed with status: 403"

@@ -54,6 +54,7 @@ func main() {
 	// Ensure base directories exist
 	utils.EnsureDirectoryExists(config.CtfdScenarioFolder)
 	utils.EnsureDirectoryExists(config.TopologyConfigFolder)
+	utils.EnsureDirectoryExists(config.PoolFolder)
 
 	// Initialize SSL certificates
 	certPath, keyPath := initSSL()

@@ -120,7 +120,7 @@ func CheckRangeStatus(c *gin.Context) {
 				}
 			}
 
-			if state != "DEPLOYED" {
+			if state != "SUCCESS" && state != "DEPLOYED" {
 				allDeployed = false
 			}
 

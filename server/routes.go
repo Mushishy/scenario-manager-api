@@ -114,4 +114,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/range/share", validateAPIKey, handlers.ShareRange)
 	r.POST("/range/unshare", validateAPIKey, handlers.UnshareRange)
 	r.GET("/range/shared", validateAPIKey, handlers.GetSharedRanges)
+
+	// Proxmox statistics
+	r.GET("/stats/proxmox", validateAPIKey, handlers.GetProxmoxStatistics)
 }

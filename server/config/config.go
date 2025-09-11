@@ -21,4 +21,7 @@ const (
 	LudusUrl              = "https://10.2.60.2:8080"
 	MaxConcurrentRequests = 4
 	ProxmoxNode           = "ludus"
+	ProxmoxURL            = "https://10.2.60.2:8006"
+	ProxmoxUsername       = "jan-slizik@pam"
+	ProxmoxPassword       = "RDqTXYCfqkIYBG2kDGlM"
 )

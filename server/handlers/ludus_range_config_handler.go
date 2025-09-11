@@ -3,6 +3,7 @@ package handlers
 import (
 	"dulus/server/config"
 	"dulus/server/utils"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -56,12 +57,21 @@ func SetRangeConfig(c *gin.Context) {
 
 	// Convert to results format
 	var results []gin.H
+	var errors []string
+
 	for _, resp := range responses {
 		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
+			errors = append(errors, fmt.Sprintf("User %s: %s", resp.UserID, resp.Error.Error()))
+		} else if errorMessage, ok := resp.Response.(map[string]interface{})["error"]; ok {
+			errors = append(errors, fmt.Sprintf("User %s: %s", resp.UserID, errorMessage))
 		} else {
 			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
 		}
+	}
+
+	if len(errors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errors})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"results": results})

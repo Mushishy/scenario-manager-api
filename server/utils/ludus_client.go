@@ -68,7 +68,7 @@ type Flag struct {
 type CtfdUser struct {
 	User     string `json:"user"`
 	Password string `json:"password"`
-	Team     string `json:"team"`
+	Team     string `json:"team,omitempty"`
 	Flags    []Flag `json:"flags"`
 }
 
