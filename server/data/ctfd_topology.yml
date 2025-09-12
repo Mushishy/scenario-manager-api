@@ -1,0 +1,82 @@
+ludus:
+  - vm_name: "{{ range_id }}-ctfd"
+    hostname: "ctfd"
+    template: debian-12-x64-server-template
+    vlan: 10
+    ip_last_octet: 10
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: true
+      block_internet: true
+    roles:
+      - ludus_fiit_ctfd
+    role_vars:
+      # Folder where data (definitions and their data are stored) - do NOT include trailing slash (/)
+      ludus_fiit_ctfd_fs_path: /opt/scenario-manager-api/data
+
+      # ID of the scenario definition (ZIP file) - MUST be set otherwise role fails
+      # Used to construct the path to the scenario definition: {{ ludus_fiit_ctfd_fs_path }}/ctfd_scenarios/{{ ludus_fiit_ctfd_scenario_definition_id }}/scenario.zip
+      ludus_fiit_ctfd_scenario_definition_id: $SECENARIO_ID
+
+      # ID of the scenario definition data (JSON file) - MUST be set otherwise role fails
+      # Used to construct the path to the scenario definition data: {{ ludus_fiit_ctfd_fs_path }}/ctfd_data/{{ ludus_fiit_ctfd_scenario_data_id }}/data.json
+      ludus_fiit_ctfd_scenario_data_id: $POOL_ID
+
+      # Username used in the imported scenario definition (used during configuration)
+      ludus_fiit_ctfd_scenario_definition_user: $USERNAME_CONFIG
+
+      # Password used in the imported scenario definition (used during configuration)
+      ludus_fiit_ctfd_scenario_definition_password: $PASSWORD_CONFIG
+
+      # Username of the new administrator which will be created in CTFd (must be different from 'ludus_fiit_ctfd_scenario_definition_user')
+      ludus_fiit_ctfd_new_admin_user: $ADMIN_USERNAME
+
+      # Password of the new administrator which will be created in CTFd
+      ludus_fiit_ctfd_new_admin_password: $ADMIN_PASSWORD
+
+      # CTFd config - name of the CTF (if empty the name imported from the scenario is used)
+      ludus_fiit_ctfd_conf_ctf_name: $CTF_NAME
+
+      # CTFd config - description of the CTF (if empty the description imported from the scenario is used)
+      ludus_fiit_ctfd_conf_ctf_description: $CTF_DESCRIPTION
+
+      # CTFd config - challenge visibility (must be "private" [only authenticated users can see challenges] or "public" [everyone can]) 
+      ludus_fiit_ctfd_conf_challenge_visibility: $CHALLENGE_VISIBILITY
+
+      # CTFd config - account visibility (must be "private" [only authenticated users can see accounts] or "public" [everyone can]) 
+      ludus_fiit_ctfd_conf_account_visibility: $ACCOUNT_VISIBILITY
+
+      # CTFd config - score visibility (must be "private" [only authenticated users can see the score] or "public" [everyone can]) 
+      ludus_fiit_ctfd_conf_score_visibility: $SCORE_VISIBILITY
+
+      # CTFd config - registration visibility (must be "private" [registration NOT possible] or "public" [registration possible]) 
+      ludus_fiit_ctfd_conf_registration_visibility: $REGISTRATION_VISIBILITY
+
+      # CTFd config - name changing (must be "no" [name changing NOT possible] or "yes" [name changing possible]) 
+      ludus_fiit_ctfd_conf_allow_name_changes: $ALLOW_NAME_CHANGES
+
+      # CTFd config - team creation (must be "no" [users can NOT create their own teams] or "yes" [users can create their own teams])
+      # Only works for team enabled scenarios
+      ludus_fiit_ctfd_conf_allow_team_creation: $ALLOW_TEAM_CREATION
+
+      # CTFd config - team disbanding (must be "no" [users can NOT disable their teams] or "yes" [users can disable their teams])
+      # Only works for team enabled scenarios
+      ludus_fiit_ctfd_conf_allow_team_disabnding: $ALLOW_TEAM_DISBANDING
+
+      # CTFd config - when will the CTF start (users can only solve challenges after this date) ('DD/MM/YYYY HH:MM' format, e.g. 20/07/2025 15:30)
+      # If empty, CTF runs until stopped manually.
+      # Note: 'ludus_fiit_ctfd_conf_stop_time' and 'ludus_fiit_ctfd_conf_timezone' also need to be set
+      ludus_fiit_ctfd_conf_start_time: $CONF_START_TIME
+
+      # CTFd config - when will the CTF end (users will not be able solve challenges after this date) ('DD/MM/YYYY HH:MM' format, e.g. 21/07/2025 15:30)
+      # If empty, CTF runs until stopped manually.
+      # Note: 'ludus_fiit_ctfd_conf_start_time' and 'ludus_fiit_ctfd_conf_timezone' also need to be set
+      ludus_fiit_ctfd_conf_stop_time: $CONF_STOP_TIME
+
+      # CTFd config - used to calculate the timestamp of when the CTF should start / end (e.g. 'Europe/Vienna', 'America/New_York' etc.)
+      ludus_fiit_ctfd_conf_timezone: $TIME_ZONE
+
+      # CTFd config - determines whether users can view CTFd data after the CTF ends (must be "no" [viewing NOT possible] or "yes" [viewing possible]) 
+      ludus_fiit_ctfd_conf_allow_viewing_after: $ALLOW_VIEWING_AFTER

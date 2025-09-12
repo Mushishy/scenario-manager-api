@@ -83,6 +83,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/topology", validateAPIKey, handlers.GetTopology)
 	r.PUT("/topology", validateAPIKey, handlers.PutTopology)
 	r.DELETE("/topology", validateAPIKey, handlers.DeleteTopology)
+	r.POST("/topology/ctfd", validateAPIKey, handlers.PostCtfdTopology)
 
 	// Pool route
 	r.POST("/pool", validateAPIKey, handlers.PostPool)

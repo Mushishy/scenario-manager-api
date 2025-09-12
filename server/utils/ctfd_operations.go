@@ -8,6 +8,30 @@ import (
 	"strings"
 )
 
+// CtfdTopologyRequest represents the request structure for CTFd topology creation
+type CtfdTopologyRequest struct {
+	TopologyName           string `json:"topologyName"`
+	ScenarioID             string `json:"scenarioId"`
+	PoolID                 string `json:"poolId"`
+	UsernameConfig         string `json:"usernameConfig"`
+	PasswordConfig         string `json:"passwordConfig"`
+	AdminUsername          string `json:"adminUsername"`
+	AdminPassword          string `json:"adminPassword"`
+	CtfName                string `json:"ctfName"`
+	CtfDescription         string `json:"ctfDescription"`
+	ChallengeVisibility    string `json:"challengeVisibility"`
+	AccountVisibility      string `json:"accountVisibility"`
+	ScoreVisibility        string `json:"scoreVisibility"`
+	RegistrationVisibility string `json:"registrationVisibility"`
+	AllowNameChanges       string `json:"allowNameChanges"`
+	AllowTeamCreation      string `json:"allowTeamCreation"`
+	AllowTeamDisbanding    string `json:"allowTeamDisbanding"`
+	ConfStartTime          string `json:"confStartTime"`
+	ConfStopTime           string `json:"confStopTime"`
+	TimeZone               string `json:"timeZone"`
+	AllowViewingAfter      string `json:"allowViewingAfter"`
+}
+
 // generateUserId generates userId from user name
 func generateUserId(user string) string {
 	// Remove spaces, convert to lowercase, and add BATCH prefix
@@ -136,7 +160,13 @@ func ValidateFlagsConsistency(ctfdData []interface{}) error {
 
 // SaveCTFdData saves CTFd data to the specified path
 func SaveCTFdData(dataPath string, data map[string]interface{}) error {
-	filePath := filepath.Join(dataPath, "ctfd_data.json") // Changed from "data.json" to "ctfd_data.json"
+	filePath := filepath.Join(dataPath, "ctfd_data.json")
+
+	// Check if file already exists, if so, do nothing
+	if _, err := os.Stat(filePath); err == nil {
+		return nil // File exists, silently return
+	}
+
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -144,7 +174,7 @@ func SaveCTFdData(dataPath string, data map[string]interface{}) error {
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ") // Pretty print JSON
+	encoder.SetIndent("", "  ")
 	return encoder.Encode(data)
 }
 

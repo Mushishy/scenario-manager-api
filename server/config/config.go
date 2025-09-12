@@ -4,10 +4,12 @@ const (
 	/*
 		Development constants
 	*/
-	CtfdScenarioFolder   = "data/scenarios"
-	TopologyConfigFolder = "data/topologies"
-	PoolFolder           = "data/pools"
-	DatabaseLocation     = "data/input/ludus.db"
+	TemplateCtfdTopologyLocation = "data/ctfd_topology.yml"
+	CtfdScenarioFolder           = "data/scenarios"
+	TopologyConfigFolder         = "data/topologies"
+	PoolFolder                   = "data/pools"
+	DatabaseLocation             = "data/input/ludus.db"
+
 	/*
 		Production constants
 		CtfdScenarioFolder   = "/opt/scenario-manager-api/data/scenarios"

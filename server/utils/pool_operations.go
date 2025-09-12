@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"dulus/server/config"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -118,4 +119,17 @@ func ExtractUserIds(poolData map[string]interface{}) []string {
 	}
 
 	return userIds
+}
+
+// DeleteCtfdData deletes the ctfd_data.json file from a pool directory
+// Does not return an error if the file doesn't exist
+func DeleteCtfdData(poolId string) error {
+	ctfdDataPath := filepath.Join(config.PoolFolder, poolId, "ctfd_data.json")
+
+	err := os.Remove(ctfdDataPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return nil
 }

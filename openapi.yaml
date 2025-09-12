@@ -1738,7 +1738,7 @@ paths:
       description: Retrieves comprehensive statistics about the Proxmox cluster including users, templates, VMs, topologies, scenarios, roles, pools, and node information
       operationId: getProxmoxStatistics
       tags: 
-        - Proxmox Statistics
+        - Proxmox
       responses:
         '200':
           description: Successfully retrieved Proxmox statistics
@@ -1766,14 +1766,17 @@ paths:
                   users:
                     type: integer
                     description: Total number of users (pools) in the Proxmox cluster (excluding ADMIN and SHARED)
+                    minimum: 0
                     example: 5
                   templates:
                     type: integer
                     description: Total number of VM templates available
+                    minimum: 0
                     example: 6
                   vms:
                     type: integer
                     description: Total number of virtual machines (excluding templates)
+                    minimum: 0
                     example: 4
                   numberOfTopologies:
                     type: integer
@@ -1801,7 +1804,7 @@ paths:
                     description: Current CPU usage as a percentage
                     minimum: 0
                     maximum: 100
-                    example: 22.5
+                    example: 0.17
                   maxCpu:
                     type: integer
                     description: Maximum number of CPU cores available
@@ -1850,7 +1853,7 @@ paths:
                 numberOfScenarios: 8
                 numberOfRoles: 25
                 numberOfPools: 7
-                cpuUsagePercentage: 22.5
+                cpuUsagePercentage: 0.17
                 maxCpu: 16
                 memoryUsedGiB: 6.24
                 memoryTotalGiB: 62.76
@@ -1864,24 +1867,183 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example:
-                error: "Unauthorized"
         '500':
           description: Internal server error - Proxmox configuration missing or connection failed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              examples:
-                configMissing:
-                  summary: Configuration missing
-                  value:
-                    error: "Proxmox configuration missing"
-                authFailed:
-                  summary: Authentication failed
-                  value:
-                    error: "Authentication failed: failed to authenticate: dial tcp 10.2.60.2:8006: connect: connection refused"
-                resourcesFailed:
-                  summary: Failed to fetch resources
-                  value:
-                    error: "Failed to fetch cluster resources: cluster resources request failed with status: 403"
+                
+  /topology/ctfd:
+    post:
+      summary: Create CTFd topology from template
+      description: Creates a new CTFd topology by processing the ctfd_topology.yml template with provided configuration values and default values for optional parameters
+      tags:
+        - Topology
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - topologyName
+                - scenarioId
+                - poolId
+              properties:
+                topologyName:
+                  type: string
+                  minLength: 1
+                  description: Name for the topology (will be used as filename prefix)
+                  example: "my-competition"
+                scenarioId:
+                  type: string
+                  minLength: 1
+                  description: ID of the scenario definition (ZIP file)
+                  example: "ABC123"
+                poolId:
+                  type: string
+                  minLength: 1
+                  description: ID of the scenario definition data (JSON file)
+                  example: "DEF456"
+                usernameConfig:
+                  type: string
+                  description: Username used in the imported scenario definition
+                  default: "admin"
+                  example: "admin"
+                passwordConfig:
+                  type: string
+                  description: Password used in the imported scenario definition
+                  default: "admin"
+                  example: "password123"
+                adminUsername:
+                  type: string
+                  description: Username of the new administrator (must be different from usernameConfig)
+                  default: "supervisor"
+                  example: "supervisor"
+                adminPassword:
+                  type: string
+                  description: Password of the new administrator
+                  default: "admin"
+                  example: "newpassword"
+                ctfName:
+                  type: string
+                  description: Name of the CTF (if empty, name from scenario is used)
+                  default: ""
+                  example: "My CTF Competition"
+                ctfDescription:
+                  type: string
+                  description: Description of the CTF (if empty, description from scenario is used)
+                  default: ""
+                  example: "A challenging CTF event"
+                challengeVisibility:
+                  type: string
+                  enum: ["private", "public"]
+                  description: Challenge visibility setting
+                  default: "private"
+                  example: "private"
+                accountVisibility:
+                  type: string
+                  enum: ["private", "public"]
+                  description: Account visibility setting
+                  default: "private"
+                  example: "private"
+                scoreVisibility:
+                  type: string
+                  enum: ["private", "public"]
+                  description: Score visibility setting
+                  default: "private"
+                  example: "public"
+                registrationVisibility:
+                  type: string
+                  enum: ["private", "public"]
+                  description: Registration visibility setting
+                  default: "private"
+                  example: "public"
+                allowNameChanges:
+                  type: string
+                  enum: ["no", "yes"]
+                  description: Whether name changing is allowed
+                  default: "no"
+                  example: "yes"
+                allowTeamCreation:
+                  type: string
+                  enum: ["no", "yes"]
+                  description: Whether users can create their own teams
+                  default: "no"
+                  example: "yes"
+                allowTeamDisbanding:
+                  type: string
+                  enum: ["no", "yes"]
+                  description: Whether users can disband their teams
+                  default: "no"
+                  example: "no"
+                confStartTime:
+                  type: string
+                  description: CTF start time in DD/MM/YYYY HH:MM format (empty for no time limit)
+                  pattern: '^$|^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$'
+                  default: ""
+                  example: "20/07/2025 15:30"
+                confStopTime:
+                  type: string
+                  description: CTF stop time in DD/MM/YYYY HH:MM format (empty for no time limit)
+                  pattern: '^$|^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$'
+                  default: ""
+                  example: "21/07/2025 15:30"
+                timeZone:
+                  type: string
+                  description: Timezone for start/stop time calculations
+                  default: "Europe/Vienna"
+                  example: "Europe/Vienna"
+                allowViewingAfter:
+                  type: string
+                  enum: ["no", "yes"]
+                  description: Whether users can view CTFd data after CTF ends
+                  default: "yes"
+                  example: "yes"
+              additionalProperties: false
+            example:
+              topologyName: "my-competition"
+              scenarioId: "ABC123"
+              poolId: "DEF456"
+      responses:
+        '200':
+          description: CTFd topology created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "CTFd topology created successfully"
+                  topologyId:
+                    type: string
+                    description: Generated unique topology ID
+                    example: "XYZ789"
+                  topologyName:
+                    type: string
+                    description: Generated topology filename
+                    example: "ctfd_my-competition.yml"
+              example:
+                message: "CTFd topology created successfully"
+                topologyId: "XYZ789"
+                topologyName: "ctfd_my-competition.yml"
+        '400':
+          description: Bad Request - Invalid request body or validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found - Scenario or Pool not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error - Failed to create topology
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

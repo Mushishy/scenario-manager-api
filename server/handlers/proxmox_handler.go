@@ -3,7 +3,6 @@ package handlers
 import (
 	"dulus/server/config"
 	"dulus/server/utils"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +16,7 @@ func GetProxmoxStatistics(c *gin.Context) {
 
 	if proxmoxURL == "" || username == "" || password == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Proxmox configuration missing",
+			"error": "Internal Server Error",
 		})
 		return
 	}
@@ -28,8 +27,8 @@ func GetProxmoxStatistics(c *gin.Context) {
 	// Authenticate
 	auth, err := client.Authenticate(username, password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": fmt.Sprintf("Authentication failed: %v", err),
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Bad Request",
 		})
 		return
 	}
@@ -38,7 +37,7 @@ func GetProxmoxStatistics(c *gin.Context) {
 	resources, err := client.GetClusterResources(auth)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": fmt.Sprintf("Failed to fetch cluster resources: %v", err),
+			"error": "Internal Server Error",
 		})
 		return
 	}

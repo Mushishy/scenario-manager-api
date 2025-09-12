@@ -204,6 +204,7 @@ func GetUserIdsFromPool(poolId string, option UserRetrievalOption) ([]string, er
 }
 
 // IsMainUserAlreadyUsed checks if a main user is already assigned to any pool
+// It checks both the mainUser field and iterates through usersAndTeams to find if the userId exists
 func IsMainUserAlreadyUsed(mainUser string) (bool, error) {
 	if mainUser == "" {
 		return false, fmt.Errorf("main user cannot be empty")
@@ -240,9 +241,16 @@ func IsMainUserAlreadyUsed(mainUser string) (bool, error) {
 			continue
 		}
 
-		// Check if this pool uses the main user
+		// Check if this pool uses the main user in the mainUser field
 		if pool.MainUser == mainUser {
 			return true, nil
+		}
+
+		// Check if the mainUser exists as a userId in any of the usersAndTeams
+		for _, userTeam := range pool.UsersAndTeams {
+			if userTeam.UserId == mainUser {
+				return true, nil
+			}
 		}
 	}
 

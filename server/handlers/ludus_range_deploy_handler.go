@@ -287,5 +287,6 @@ func RemoveRange(c *gin.Context) {
 		}
 	}
 
+	utils.DeleteCtfdData(poolId)
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }

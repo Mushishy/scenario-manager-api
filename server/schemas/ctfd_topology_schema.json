@@ -1,0 +1,98 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "topologyName": {        
+            "type": "string",
+            "minLength": 1
+        },
+        "scenarioId": {        
+            "type": "string",
+            "minLength": 1
+        },
+        "poolId": {            
+            "type": "string",
+            "minLength": 1
+        },
+        "usernameConfig": { 
+            "type": "string",
+            "default": "admin"
+        },
+        "passwordConfig": { 
+            "type": "string",
+            "default": "admin"
+        },
+        "adminUsername": { 
+            "type": "string",
+            "default": "supervisor"
+        },
+        "adminPassword": { 
+            "type": "string",
+            "default": "admin"
+        },
+        "ctfName": { 
+            "type": "string",
+            "default": ""
+        },
+        "ctfDescription": { 
+            "type": "string",
+            "default": ""
+        },
+        "challengeVisibility": { 
+            "type": "string",
+            "enum": ["private", "public"],
+            "default": "private"
+        },
+        "accountVisibility": { 
+            "type": "string",
+            "enum": ["private", "public"],
+            "default": "private"
+        },
+        "scoreVisibility": { 
+            "type": "string",
+            "enum": ["private", "public"],
+            "default": "private"
+        },
+        "registrationVisibility": { 
+            "type": "string",
+            "enum": ["private", "public"],
+            "default": "private"
+        },
+        "allowNameChanges": { 
+            "type": "string",
+            "enum": ["no", "yes"],
+            "default": "no"
+        },
+        "allowTeamCreation": { 
+            "type": "string",
+            "enum": ["no", "yes"],
+            "default": "no"
+        },
+        "allowTeamDisbanding": { 
+            "type": "string",
+            "enum": ["no", "yes"],
+            "default": "no"
+        },
+        "confStartTime": { 
+            "type": "string",
+            "pattern": "^$|^\\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}$",
+            "default": ""
+        },
+        "confStopTime": { 
+            "type": "string",
+            "pattern": "^$|^\\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}$",
+            "default": ""
+        },
+        "timeZone": { 
+            "type": "string",
+            "default": "Europe/Vienna"
+        },
+        "allowViewingAfter": { 
+            "type": "string",
+            "enum": ["no", "yes"],
+            "default": "yes"
+        }
+    },
+    "required": ["topologyName", "scenarioId", "poolId"],
+    "additionalProperties": false
+}
