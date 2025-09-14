@@ -71,6 +71,12 @@ func PostPool(c *gin.Context) {
 		}
 	}
 
+	err := utils.ValidateUsersNotMainUsers(input["usersAndTeams"].([]interface{}))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Users and Teams cannot contain Main Users from other pools"})
+		return
+	}
+
 	// Generate pool id and create folder
 	poolId, err := utils.GenerateUniqueID(config.PoolFolder)
 	if err != nil {

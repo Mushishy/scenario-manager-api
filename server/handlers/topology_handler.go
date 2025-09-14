@@ -71,6 +71,19 @@ func PutTopology(c *gin.Context) {
 	var topologyPath string
 	var err error
 
+	// Handle file upload
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	// Check file extension
+	if filepath.Ext(file.Filename) != ".yml" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
 	if topologyId != "" {
 		// Validate existing folder and set topologyPath
 		validatedPath, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId)
@@ -89,19 +102,6 @@ func PutTopology(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
 		}
-	}
-
-	// Handle file upload
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	// Check file extension
-	if filepath.Ext(file.Filename) != ".yml" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
 	}
 
 	// Clean and recreate folder if updating

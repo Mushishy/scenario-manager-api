@@ -132,14 +132,11 @@ func PutCtfdData(c *gin.Context) {
 	}
 
 	// Read pool.json to get user details
-	userDetailMap, err := utils.GetUserDetailsFromPool(poolPath)
+	ctfdUsers, err := utils.GetUserDetailsAndExtractFlags(poolPath, apiKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Extract flags from logs for all users
-	ctfdUsers := utils.ExtractFlagsFromLogs(userIds, userDetailMap, apiKey)
 
 	// Prepare the data structure for saving
 	ctfdData := utils.CtfdData{CtfdData: ctfdUsers}
