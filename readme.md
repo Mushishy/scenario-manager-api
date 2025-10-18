@@ -4,7 +4,7 @@
 cd server
 go mod download
 go mod tidy
-go run .
+source ../.env && go run .
 ```
 
 ### Documentation
@@ -16,8 +16,8 @@ docker run -d -p 9000:8080 swaggerapi/swagger-editor:latest
 
 ### Deployment
 
-Don't forget to check config.go first!
+Make sure that `docker-compose.yml` is placed in the same folder as folders `artemis-frontend` and `scenario-manager-api`.
+
 ```
-bash build.sh
-bash deploy.sh
+docker-compose up -d
 ```

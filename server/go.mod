@@ -7,6 +7,7 @@ toolchain go1.23.11
 require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.10.1
+	github.com/joho/godotenv v1.5.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.39.0
 	modernc.org/sqlite v1.38.2

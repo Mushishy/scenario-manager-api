@@ -1,0 +1,108 @@
+# Git
+.git
+.gitignore
+README.md
+.gitattributes
+
+# Documentation
+*.md
+docs/
+documentation/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Go specific
+# Binaries for programs and plugins
+main
+scenario-manager-api
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+*.cover
+
+# Go workspace file
+go.work
+
+# Dependency directories (modules are downloaded in container)
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.example
+
+# Data directories that should be mounted as volumes
+server/data/
+server/scenarios/
+server/topologies/
+server/pools/
+server/input/
+
+# Database files (mounted as volumes)
+*.db
+*.sqlite
+*.sqlite3
+ludus.db
+
+# SSL certificates and keys (mounted from host)
+*.pem
+*.key
+*.crt
+*.p12
+cert.pem
+key.pem
+pve-ssl.pem
+pve-ssl.key
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Local development files
+docker-compose.override.yml
+
+# Config files that might contain secrets
+config.json
+config.yaml
+config.yml
+
+# Any local test data
+test-data/
+sample-data/

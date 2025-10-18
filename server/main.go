@@ -22,22 +22,12 @@ func initDB() {
 }
 
 func initSSL() (string, string) {
-	certPath := "/etc/pve/nodes/" + config.ProxmoxNode + "/pve-ssl.pem"
-	keyPath := "/etc/pve/nodes/" + config.ProxmoxNode + "/pve-ssl.key"
+	certPath := config.ProxmoxCertPath + "/pve-ssl.pem"
+	keyPath := config.ProxmoxCertPath + "/pve-ssl.key"
 
 	if utils.FileExists(certPath) && utils.FileExists(keyPath) {
 		return certPath, keyPath
 	}
-
-	// Fallback to Ludus certificates
-	certPath = "/opt/ludus/cert.pem"
-	keyPath = "/opt/ludus/key.pem"
-
-	if utils.FileExists(certPath) && utils.FileExists(keyPath) {
-		return certPath, keyPath
-	}
-
-	// No valid certificates found
 	return "", ""
 }
 
@@ -67,6 +57,6 @@ func main() {
 		// Start the server with TLS
 		fmt.Println("Starting https server")
 		gin.SetMode(gin.ReleaseMode)
-		r.RunTLS("127.0.0.1:5000", certPath, keyPath)
+		r.RunTLS("0.0.0.0:5000", certPath, keyPath)
 	}
 }

@@ -1,0 +1,55 @@
+services:
+  scenario-manager-api:
+    build:
+      context: ./scenario-manager-api
+      dockerfile: Dockerfile
+    container_name: scenario-manager-api
+    environment:
+      - MAX_CONCURRENT_REQUESTS=4
+      - TIMESTAMP_FORMAT=2006-01-02T15:04:05Z07:00
+      - DATABASE_LOCATION=/opt/ludus/ludus.db
+      - TEMPLATE_CTFD_TOPOLOGY_LOCATION=/opt/scenario-manager-api/server/data/ctfd_topology.yml
+      - CTFD_SCENARIO_FOLDER=/opt/scenario-manager-api/server/data/scenarios
+      - TOPOLOGY_CONFIG_FOLDER=/opt/scenario-manager-api/server/data/topologies
+      - POOL_FOLDER=/opt/scenario-manager-api/server/data/pools      
+      - LUDUS_ADMIN_URL=https://172.17.0.1:8081
+      - LUDUS_URL=https://172.17.0.1:8080
+      - PROXMOX_URL=https://172.17.0.1:8006
+      - PROXMOX_CERT_PATH=/etc/pve/nodes/ludus                               #
+      - PROXMOX_USERNAME=jan-slizik@pam                                      #
+      - PROXMOX_PASSWORD=RDqTXYCfqkIYBG2kDGlM                                #
+    volumes:
+      - /opt/scenario-manager-api/server/data:/opt/scenario-manager-api/server/data
+      - /opt/ludus/ludus.db:/opt/ludus/ludus.db:ro
+      - /etc/pve/nodes/ludus/pve-ssl.pem:/etc/pve/nodes/ludus/pve-ssl.pem:ro
+      - /etc/pve/nodes/ludus/pve-ssl.key:/etc/pve/nodes/ludus/pve-ssl.key:ro
+    restart: unless-stopped
+    networks:
+      - scenario-manager-network
+  
+  artemis-frontend:
+    build:
+      context: ./artemis-frontend
+      dockerfile: Dockerfile
+    container_name: artemis-frontend
+    ports:
+      - "5173:5173"
+    environment: 
+      - PUBLIC_DULUS_SERVER=https://scenario-manager-api:5000
+      - PUBLIC_LUDUS_SERVER=https://172.17.0.1:8080
+      - PUBLIC_LUDUS_ADMIN_SERVER=https://172.17.0.1:8081
+      - PUBLIC_LUDUS_PROXMOX_SERVER=https://172.17.0.1:8006
+      - PUBLIC_GITLAB_URL=https://gitlab.kypo.fiit.stuba.sk
+      - LUDUS_API_KEY=JSLIZIK._1Czjvt+xRkFPVzWR7uS7ZdiCZvwZ+IFM%1lLvrU        #
+    #volumes:
+      #- /etc/pve/nodes/ludus/pve-ssl.pem:/etc/pve/nodes/ludus/pve-ssl.pem:ro
+      #- /etc/pve/nodes/ludus/pve-ssl.key:/etc/pve/nodes/ludus/pve-ssl.key:ro
+    restart: unless-stopped
+    networks:
+      - scenario-manager-network
+    depends_on:
+      - scenario-manager-api
+
+networks:
+  scenario-manager-network:
+    driver: bridge
