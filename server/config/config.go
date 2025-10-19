@@ -51,17 +51,21 @@ func getEnvAsInt(key string) int {
 }
 
 func loadVariables() {
-	TemplateCtfdTopologyLocation = getEnv("TEMPLATE_CTFD_TOPOLOGY_LOCATION")
-	CtfdScenarioFolder = getEnv("CTFD_SCENARIO_FOLDER")
-	TopologyConfigFolder = getEnv("TOPOLOGY_CONFIG_FOLDER")
-	PoolFolder = getEnv("POOL_FOLDER")
-	DatabaseLocation = getEnv("DATABASE_LOCATION")
-	TimestampFormat = getEnv("TIMESTAMP_FORMAT")
+	MaxConcurrentRequests = getEnvAsInt("MAX_CONCURRENT_REQUESTS")
+	DataLocation := getEnv("DATA_LOCATION")
+
 	LudusAdminUrl = getEnv("LUDUS_ADMIN_URL")
 	LudusUrl = getEnv("LUDUS_URL")
-	MaxConcurrentRequests = getEnvAsInt("MAX_CONCURRENT_REQUESTS")
 	ProxmoxURL = getEnv("PROXMOX_URL")
+
 	ProxmoxUsername = getEnv("PROXMOX_USERNAME")
 	ProxmoxPassword = getEnv("PROXMOX_PASSWORD")
 	ProxmoxCertPath = getEnv("PROXMOX_CERT_PATH")
+
+	DatabaseLocation = DataLocation + "/input/dulus.db"
+	TemplateCtfdTopologyLocation = DataLocation + "ctfd_topology.yml"
+	CtfdScenarioFolder = DataLocation + "scenarios/"
+	TopologyConfigFolder = DataLocation + "topologies/"
+	PoolFolder = DataLocation + "pools/"
+	TimestampFormat = "2006-01-02T15:04:05Z07:00"
 }
