@@ -34,9 +34,7 @@ services:
       - PUBLIC_LUDUS_ADMIN_SERVER=https://172.17.0.1:8081
       - PUBLIC_LUDUS_PROXMOX_SERVER=https://172.17.0.1:8006
       - PUBLIC_GITLAB_URL=https://gitlab.kypo.fiit.stuba.sk
-      - LUDUS_SERVER_URL=https://172.17.0.1:8080
-      - LUDUS_API_KEY=JSLIZIK._1Czjvt+xRkFPVzWR7uS7ZdiCZvwZ+IFM%1lLvrU
-      - ENCRYPTION_KEY=artemis-2025-secure-32char-key!!
+      - PRIVATE_JWT_SECRET=your-very-secure-and-random-jwt-secret-key
     restart: unless-stopped
     networks:
       - scenario-manager-network
