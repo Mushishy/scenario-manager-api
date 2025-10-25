@@ -1732,6 +1732,237 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  # LUDUS RANGE TESTING
+  /range/testing/start:
+    put:
+      summary: Start testing for a pool
+      description: Start testing for all users in the specified pool
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          description: The ID of the pool to start testing for
+          schema:
+            type: string
+            example: "U8b1hP"
+      tags:
+        - Ludus Range Testing
+      responses:
+        '200':
+          description: Testing start requests completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          description: User ID that was processed
+                          example: "JD"
+                        response:
+                          type: object
+                          description: Response from Ludus API (if successful)
+                        error:
+                          type: string
+                          description: Error message (if failed)
+                          example: "User not found"
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "testing started"
+                      - userId: "user2"
+                        response:
+                          status: "testing started"
+                error_mixed:
+                  summary: Mixed success/error response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "testing started"
+                      - userId: "invalid_user"
+                        error: "User not found"
+        '400':
+          description: Bad request - invalid pool ID or other parameter error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid pool ID"
+        '404':
+          description: Pool not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+
+  /range/testing/stop:
+    put:
+      summary: Stop testing for a pool
+      description: Stop testing for all main users in the specified pool with force option
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          description: The ID of the pool to stop testing for
+          schema:
+            type: string
+            example: "U8b1hP"
+      tags:
+        - Ludus Range Testing
+      responses:
+        '200':
+          description: Testing stop requests completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          description: User ID that was processed
+                          example: "JD"
+                        response:
+                          type: object
+                          description: Response from Ludus API (if successful)
+                        error:
+                          type: string
+                          description: Error message (if failed)
+                          example: "User not found"
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "testing stopped"
+                      - userId: "user2"
+                        response:
+                          status: "testing stopped"
+                error_mixed:
+                  summary: Mixed success/error response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "testing stopped"
+                      - userId: "invalid_user"
+                        error: "User not found"
+        '400':
+          description: Bad request - invalid pool ID or other parameter error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid pool ID"
+        '404':
+          description: Pool not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+
+  /range/testing/status:
+    get:
+      summary: Get testing status for a pool
+      description: Check if all users in the pool have the same testing status and return the common status
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          description: The ID of the pool to check testing status for
+          schema:
+            type: string
+            example: "U8b1hP"
+      tags:
+        - Ludus Range Testing
+      responses:
+        '200':
+          description: Testing status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allSame:
+                    type: boolean
+                    description: Whether all users have the same testing status
+                    example: true
+                  testingEnabled:
+                    type: boolean
+                    description: The common testing status (only meaningful if allSame is true)
+                    example: true
+              examples:
+                all_enabled:
+                  summary: All users have testing enabled
+                  value:
+                    allSame: true
+                    testingEnabled: true
+                all_disabled:
+                  summary: All users have testing disabled
+                  value:
+                    allSame: true
+                    testingEnabled: false
+                mixed_status:
+                  summary: Users have different testing statuses
+                  value:
+                    allSame: false
+                    testingEnabled: false
+                no_users:
+                  summary: No valid users found
+                  value:
+                    allSame: false
+                    testingEnabled: false
+        '400':
+          description: Bad request - invalid pool ID or other parameter error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid pool ID"
+        '404':
+          description: Pool not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+
   /stats/proxmox:
     get:
       summary: Get Proxmox cluster statistics

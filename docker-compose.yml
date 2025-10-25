@@ -6,12 +6,14 @@ services:
     container_name: scenario-manager-api
     environment:
       - MAX_CONCURRENT_REQUESTS=4
+      - DATA_LOCATION=/opt/scenario-manager-api/server/data
+      - DATABASE_LOCATION=/opt/ludus/ludus.db
       - LUDUS_ADMIN_URL=https://172.17.0.1:8081
       - LUDUS_URL=https://172.17.0.1:8080
       - PROXMOX_URL=https://172.17.0.1:8006
-      - PROXMOX_CERT_PATH=/etc/pve/nodes/ludus                               #
-      - PROXMOX_USERNAME=jan-slizik@pam                                      #
-      - PROXMOX_PASSWORD=RDqTXYCfqkIYBG2kDGlM                                #
+      - PROXMOX_CERT_PATH=/etc/pve/nodes/ludus
+      - PROXMOX_USERNAME=jan-slizik@pam
+      - PROXMOX_PASSWORD=RDqTXYCfqkIYBG2kDGlM
     volumes:
       - /opt/scenario-manager-api/server/data:/opt/scenario-manager-api/server/data
       - /opt/ludus/ludus.db:/opt/ludus/ludus.db:ro
@@ -26,8 +28,6 @@ services:
       context: ./artemis-frontend
       dockerfile: Dockerfile
     container_name: artemis-frontend
-    ports:
-      - "5173:5173"
     environment: 
       - PUBLIC_DULUS_SERVER=https://scenario-manager-api:5000
       - PUBLIC_LUDUS_SERVER=https://172.17.0.1:8080
@@ -35,16 +35,28 @@ services:
       - PUBLIC_LUDUS_PROXMOX_SERVER=https://172.17.0.1:8006
       - PUBLIC_GITLAB_URL=https://gitlab.kypo.fiit.stuba.sk
       - LUDUS_SERVER_URL=https://172.17.0.1:8080
-      - LUDUS_API_KEY=JSLIZIK._1Czjvt+xRkFPVzWR7uS7ZdiCZvwZ+IFM%1lLvrU        #
-      - ENCRYPTION_KEY=artemis-2025-secure-32char-key!!                       #
-    #volumes:
-      #- /etc/pve/nodes/ludus/pve-ssl.pem:/etc/pve/nodes/ludus/pve-ssl.pem:ro
-      #- /etc/pve/nodes/ludus/pve-ssl.key:/etc/pve/nodes/ludus/pve-ssl.key:ro
+      - LUDUS_API_KEY=JSLIZIK._1Czjvt+xRkFPVzWR7uS7ZdiCZvwZ+IFM%1lLvrU
+      - ENCRYPTION_KEY=artemis-2025-secure-32char-key!!
     restart: unless-stopped
     networks:
       - scenario-manager-network
     depends_on:
       - scenario-manager-api
+
+  nginx:
+    image: nginx:1.29.2-alpine-slim
+    container_name: artemis-nginx
+    ports:
+      - "443:443"
+    volumes:
+      - /opt/artemis-frontend/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/pve/nodes/ludus/pve-ssl.pem:/etc/ssl/certs/server.crt:ro
+      - /etc/pve/nodes/ludus/pve-ssl.key:/etc/ssl/private/server.key:ro
+    restart: unless-stopped
+    networks:
+      - scenario-manager-network
+    depends_on:
+      - artemis-frontend
 
 networks:
   scenario-manager-network:

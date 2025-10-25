@@ -8,6 +8,7 @@ README.md
 *.md
 docs/
 documentation/
+openapi.yaml
 
 # IDE and editor files
 .vscode/
@@ -106,3 +107,5 @@ config.yml
 # Any local test data
 test-data/
 sample-data/
+
+.DS_Store
