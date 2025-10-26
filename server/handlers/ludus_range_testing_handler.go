@@ -14,14 +14,22 @@ func PutTestingStart(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var userIds []string
+	mainUser, _ := utils.GetMainUserFromPool(poolId)
+
+	if mainUser != "" {
+		userIds = []string{mainUser}
+	} else {
+		var err error
+		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
+		if err != nil {
+			if err.Error() == "pool not found" {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			}
+			return
 		}
-		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
@@ -59,14 +67,22 @@ func PutTestingStop(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var userIds []string
+	mainUser, _ := utils.GetMainUserFromPool(poolId)
+
+	if mainUser != "" {
+		userIds = []string{mainUser}
+	} else {
+		var err error
+		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
+		if err != nil {
+			if err.Error() == "pool not found" {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			}
+			return
 		}
-		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
@@ -105,14 +121,22 @@ func GetTestingStatus(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var userIds []string
+	mainUser, _ := utils.GetMainUserFromPool(poolId)
+
+	if mainUser != "" {
+		userIds = []string{mainUser}
+	} else {
+		var err error
+		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
+		if err != nil {
+			if err.Error() == "pool not found" {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			}
+			return
 		}
-		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")

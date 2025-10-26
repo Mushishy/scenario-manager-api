@@ -30,9 +30,9 @@ services:
     container_name: artemis-frontend
     environment: 
       - PUBLIC_DULUS_SERVER=https://scenario-manager-api:5000
-      - PUBLIC_LUDUS_SERVER=https://172.17.0.1:8080
+      - PUBLIC_LUDUS_SERVER=https://172.17.0.1:8080 #
       - PUBLIC_LUDUS_ADMIN_SERVER=https://172.17.0.1:8081
-      - PUBLIC_LUDUS_PROXMOX_SERVER=https://172.17.0.1:8006
+      - PUBLIC_LUDUS_PROXMOX_SERVER=https://172.17.0.1:8006 #
       - PUBLIC_GITLAB_URL=https://gitlab.kypo.fiit.stuba.sk
       - PRIVATE_JWT_SECRET=your-very-secure-and-random-jwt-secret-key
     restart: unless-stopped
