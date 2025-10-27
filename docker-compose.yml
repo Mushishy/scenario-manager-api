@@ -34,7 +34,8 @@ services:
       - PUBLIC_LUDUS_ADMIN_SERVER=https://172.17.0.1:8081
       - PUBLIC_LUDUS_PROXMOX_SERVER=https://172.17.0.1:8006 #
       - PUBLIC_GITLAB_URL=https://gitlab.kypo.fiit.stuba.sk
-      - PRIVATE_JWT_SECRET=your-very-secure-and-random-jwt-secret-key
+      - PRIVATE_JWT_SECRET=4faf1a9123708b0e52dd3e1baa6e7ec9bd4e588bcab61bf12ffef45b6a6452c3
+      - PRIVATE_ENCRYPTION_SECRET=da5e22d3035d314412894351d715585716b04071b08297bc26c84701b2174536
     restart: unless-stopped
     networks:
       - scenario-manager-network

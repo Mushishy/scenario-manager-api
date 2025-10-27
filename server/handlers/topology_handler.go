@@ -185,6 +185,12 @@ func PostCtfdTopology(c *gin.Context) {
 		return
 	}
 
+	// Validate date time formats and order
+	if valid := utils.ValidateDateTimeRange(req.ConfStartTime, req.ConfStopTime); !valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
 	// Read the template file using proper config
 	templateContent, err := os.ReadFile(config.TemplateCtfdTopologyLocation)
 	if err != nil {
