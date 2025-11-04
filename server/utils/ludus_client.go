@@ -16,9 +16,48 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+// Global deployment state manager
+var (
+	deploymentStates = make(map[string]string) // poolId -> status ("deploying", "aborted")
+	deploymentMutex  sync.RWMutex
+)
+
+// Deployment state constants
+const (
+	DeploymentStateDeploying = "deploying"
+	DeploymentStateAborted   = "aborted"
+)
+
+// SetPoolDeploymentState sets the deployment state for a pool
+func SetPoolDeploymentState(poolId, state string) {
+	deploymentMutex.Lock()
+	defer deploymentMutex.Unlock()
+	deploymentStates[poolId] = state
+}
+
+// GetPoolDeploymentState gets the deployment state for a pool
+func GetPoolDeploymentState(poolId string) string {
+	deploymentMutex.RLock()
+	defer deploymentMutex.RUnlock()
+	return deploymentStates[poolId]
+}
+
+// IsPoolAborted checks if a pool deployment has been aborted
+func IsPoolAborted(poolId string) bool {
+	return GetPoolDeploymentState(poolId) == DeploymentStateAborted
+}
+
+// ClearPoolDeploymentState removes the deployment state for a pool
+func ClearPoolDeploymentState(poolId string) {
+	deploymentMutex.Lock()
+	defer deploymentMutex.Unlock()
+	delete(deploymentStates, poolId)
+}
 
 // Core types
 type LudusRequest struct {
@@ -95,10 +134,6 @@ func createHTTPClient() *http.Client {
 
 // MakeConcurrentLudusRequests processes multiple Ludus requests concurrently
 func MakeConcurrentLudusRequests(requests []LudusRequest, apiKey string, maxConcurrency int) []LudusResponse {
-	if maxConcurrency <= 0 {
-		maxConcurrency = 5 // Default fallback
-	}
-
 	// Create channels
 	requestChan := make(chan LudusRequest, len(requests))
 	responseChan := make(chan LudusResponse, len(requests))
@@ -406,4 +441,100 @@ func ExtractUserFlags(resp LudusResponse, flagPattern *regexp.Regexp) []Flag {
 		})
 	}
 	return flags
+}
+
+// WaitForBatchDestroyed waits until all users in batch are destroyed
+func WaitForBatchDestroyed(poolId string, userIds []string, apiKey string, checkInterval time.Duration) bool {
+	for {
+		// Check global deployment state first
+		if IsPoolAborted(poolId) {
+			return false
+		}
+
+		allDestroyed := true
+
+		// Check status of all users in batch
+		requests := make([]LudusRequest, len(userIds))
+		for i, userID := range userIds {
+			requests[i] = LudusRequest{
+				Method: "GET",
+				URL:    config.LudusUrl + "/range/?userID=" + userID,
+				UserID: userID,
+			}
+		}
+
+		responses := MakeConcurrentLudusRequests(requests, apiKey, len(userIds))
+
+		for _, resp := range responses {
+			if resp.Error != nil {
+				continue // Error might mean destroyed or not found
+			}
+
+			state := "unknown"
+			if resp.Response != nil {
+				if rangeState, exists := resp.Response.(map[string]interface{})["rangeState"]; exists {
+					state = rangeState.(string)
+				}
+			}
+
+			// If any user is still destroying, we're not done
+			if state == "DESTROYING" {
+				allDestroyed = false
+				break
+			}
+		}
+
+		// If all destroyed, continue
+		if allDestroyed {
+			return true
+		}
+
+		time.Sleep(checkInterval)
+	}
+} // WaitForBatchDeployment waits until all users in batch are deployed, failed, or aborted
+func WaitForBatchDeployment(poolId string, userIds []string, apiKey string, checkInterval time.Duration) bool {
+	for {
+		// Check global deployment state first
+		if IsPoolAborted(poolId) {
+			return false
+		}
+
+		allDone := true
+		// Check status of all users in batch
+		requests := make([]LudusRequest, len(userIds))
+		for i, userID := range userIds {
+			requests[i] = LudusRequest{
+				Method: "GET",
+				URL:    config.LudusUrl + "/range/?userID=" + userID,
+				UserID: userID,
+			}
+		}
+
+		responses := MakeConcurrentLudusRequests(requests, apiKey, len(userIds))
+
+		for _, resp := range responses {
+			if resp.Error != nil {
+				continue // Error = done (failed)
+			}
+
+			state := "unknown"
+			if resp.Response != nil {
+				if rangeState, exists := resp.Response.(map[string]interface{})["rangeState"]; exists {
+					state = rangeState.(string)
+				}
+			}
+
+			// If any user is still deploying, we're not done
+			if state == "DEPLOYING" || state == "BUILDING" {
+				allDone = false
+			}
+		}
+
+		// If all done, continue to next batch
+		if allDone {
+			return true
+		}
+
+		time.Sleep(checkInterval)
+	}
 }

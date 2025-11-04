@@ -166,6 +166,8 @@ func ParseStatistics(resources *ClusterResourcesResponse, apiKey string) *Proxmo
 	stats := &ProxmoxStatistics{}
 
 	var nodeResource *Resource
+	var totalDiskUsed int64
+	var totalDiskMax int64
 
 	for _, resource := range resources.Data {
 		switch resource.Type {
@@ -181,8 +183,13 @@ func ParseStatistics(resources *ClusterResourcesResponse, apiKey string) *Proxmo
 				stats.VMs++
 			}
 		case "node":
-			if resource.Node == "ludus" {
+			if resource.Node == config.ProxmoxNodeName {
 				nodeResource = &resource
+			}
+		case "storage":
+			if resource.Node == config.ProxmoxNodeName {
+				totalDiskUsed += resource.Disk
+				totalDiskMax += resource.MaxDisk
 			}
 		}
 	}
@@ -200,9 +207,11 @@ func ParseStatistics(resources *ClusterResourcesResponse, apiKey string) *Proxmo
 		stats.MemoryUsedGiB = bytesToGiB(nodeResource.Mem)
 		stats.MemoryTotalGiB = bytesToGiB(nodeResource.MaxMem)
 		stats.MemoryFreeGiB = bytesToGiB(nodeResource.MaxMem - nodeResource.Mem)
-		stats.DiskUsedGiB = bytesToGiB(nodeResource.Disk)
-		stats.DiskTotalGiB = bytesToGiB(nodeResource.MaxDisk)
 		stats.UptimeFormatted = formatUptime(nodeResource.Uptime)
+
+		// Use storage statistics instead of node statistics for disk
+		stats.DiskUsedGiB = bytesToGiB(totalDiskUsed)
+		stats.DiskTotalGiB = bytesToGiB(totalDiskMax)
 	}
 
 	return stats

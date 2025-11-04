@@ -1478,8 +1478,11 @@ paths:
   # Ludus Range Deployment
   /range/deploy:
     post:
-      summary: Deploy range for pool users
-      description: Deploy range infrastructure for all users in a pool
+      summary: Deploy range for pool users (async)
+      description: |
+        Start asynchronous deployment of range infrastructure for all users in a pool.
+        The deployment runs in the background with batched processing based on concurrentRequests.
+        Use /range/status to monitor deployment progress.
       tags:
         - Ludus Range Deployment
       parameters:
@@ -1491,28 +1494,34 @@ paths:
             pattern: "^[a-zA-Z0-9]{6}$"
           description: Pool ID to get users from
           example: "ABC123"
+        - name: concurrentRequests
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+          description: Number of concurrent deployment requests per batch
+          example: 3
       responses:
         '200':
-          description: Deployment results
+          description: Deployment started successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        response:
-                          type: object
-                        error:
-                          type: string
+                  poolId:
+                    type: string
+                    example: "ABC123"
+                  userCount:
+                    type: integer
+                    example: 4
+                  concurrentRequests:
+                    type: integer
+                    example: 3
         '400':
-          description: Bad Request
+          description: Bad Request (invalid poolId or concurrentRequests)
           content:
             application/json:
               schema:
@@ -1587,8 +1596,12 @@ paths:
 
   /range/redeploy:
     post:
-      summary: Redeploy range for pool users
-      description: Redeploy range infrastructure for all users in a pool based on current state
+      summary: Redeploy range for pool users (async)
+      description: |
+        Start asynchronous redeployment of range infrastructure for all users in a pool.
+        The process checks current states and handles ERROR/ABORTED ranges by destroying 
+        and redeploying them. Runs in background with batched processing.
+        Use /range/status to monitor redeployment progress.
       tags:
         - Ludus Range Deployment
       parameters:
@@ -1600,31 +1613,34 @@ paths:
             pattern: "^[a-zA-Z0-9]{6}$"
           description: Pool ID to get users from
           example: "ABC123"
+        - name: concurrentRequests
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+          description: Number of concurrent requests per batch (for destroy and deploy phases)
+          example: 3
       responses:
         '200':
-          description: Redeployment results
+          description: Redeployment started successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        userId:
-                          type: string
-                          example: "BATCHuser1"
-                        action:
-                          type: string
-                          example: "redeployed"
-                        message:
-                          type: string
-                        state:
-                          type: string
+                  poolId:
+                    type: string
+                    example: "ABC123"
+                  userCount:
+                    type: integer
+                    example: 4
+                  concurrentRequests:
+                    type: integer
+                    example: 3
         '400':
-          description: Bad Request
+          description: Bad Request (invalid poolId or concurrentRequests)
           content:
             application/json:
               schema:

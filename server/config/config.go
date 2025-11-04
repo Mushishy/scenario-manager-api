@@ -23,6 +23,7 @@ var (
 	ProxmoxUsername              string
 	ProxmoxPassword              string
 	ProxmoxCertPath              string
+	ProxmoxNodeName              string
 )
 
 func init() {
@@ -62,6 +63,7 @@ func loadVariables() {
 	ProxmoxUsername = getEnv("PROXMOX_USERNAME")
 	ProxmoxPassword = getEnv("PROXMOX_PASSWORD")
 	ProxmoxCertPath = getEnv("PROXMOX_CERT_PATH")
+	ProxmoxNodeName = getEnv("PROXMOX_NODE_NAME")
 
 	TemplateCtfdTopologyLocation = DataLocation + "/ctfd_topology.yml"
 	CtfdScenarioFolder = DataLocation + "/scenarios/"
