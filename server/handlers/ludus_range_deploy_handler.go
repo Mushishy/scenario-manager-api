@@ -26,20 +26,21 @@ func DeployRange(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	// Check if already deploying
+	if utils.IsPoolDeploying(poolId) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Pool is already deploying"})
+		return
+	}
+
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedMainUserOnly)
+	if !ok {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Set pool as deploying
-	utils.SetPoolDeploymentState(poolId, utils.DeploymentStateDeploying)
+	utils.SetPoolDeploying(poolId)
 
 	// Start deployment in background goroutine
 	go func() {
@@ -50,6 +51,9 @@ func DeployRange(c *gin.Context) {
 		// Process users in batches
 		batchSize := concurrentRequests
 		for i := 0; i < len(userIds); i += batchSize {
+			if !utils.IsPoolDeploying(poolId) {
+				break
+			}
 			end := i + batchSize
 			if end > len(userIds) {
 				end = len(userIds)
@@ -73,11 +77,8 @@ func DeployRange(c *gin.Context) {
 			// Note: In async mode, we don't collect/return results
 			// Use CheckRangeStatus to monitor deployment progress
 
-			// 2. Wait for this batch to actually finish deploying (or get aborted)
-			if !utils.WaitForBatchDeployment(poolId, batch, apiKey, 30*time.Second) {
-				// Batch was aborted, stop processing remaining batches
-				return
-			}
+			// 2. Wait for this batch to actually finish deploying
+			utils.WaitForBatchDeployment(batch, apiKey, 30*time.Second)
 		}
 	}() // Close the goroutine
 
@@ -95,23 +96,31 @@ func CheckRangeStatus(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
-
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
 		return
 	}
-	mainUser, _ := utils.GetMainUserFromPool(poolId)
+
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	var users []string
+	var mainUsers []string
+	if pool.Type == "SHARED" {
+		userIds, mainUserIds := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = append(userIds, mainUserIds...)
+		mainUsers = mainUserIds
+	} else {
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
+	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(userIds))
-	for i, userID := range userIds {
+	requests := make([]utils.LudusRequest, len(users))
+	for i, userID := range users {
 		requests[i] = utils.LudusRequest{
 			Method:  "GET",
 			URL:     config.LudusUrl + "/range/?userID=" + userID,
@@ -120,30 +129,19 @@ func CheckRangeStatus(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format and check if all are deployed
+	// Check if all are deployed
 	var results []gin.H
 	allDeployed := true
 
-	for _, resp := range responses {
-		// Skip if mainUser is specified and this response is not for the main user
-		if mainUser != "" && resp.UserID != mainUser {
-			if resp.Error != nil {
-				results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-			} else {
-				state := "unknown"
-				if resp.Response != nil {
-					if rangeState, exists := resp.Response.(map[string]interface{})["rangeState"]; exists {
-						state = rangeState.(string)
-					}
-				}
-				results = append(results, gin.H{"userId": resp.UserID, "state": state})
-			}
-			continue
-		}
+	// Create a map of main users for quick lookup
+	mainUserMap := make(map[string]bool)
+	for _, mu := range mainUsers {
+		mainUserMap[mu] = true
+	}
 
+	for _, resp := range responses {
 		if resp.Error != nil {
 			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
 			allDeployed = false
@@ -156,7 +154,12 @@ func CheckRangeStatus(c *gin.Context) {
 			}
 
 			if state != "SUCCESS" && state != "DEPLOYED" {
-				allDeployed = false
+				if pool.Type != "SHARED" {
+					allDeployed = false
+				}
+				if pool.Type == "SHARED" && mainUserMap[resp.UserID] {
+					allDeployed = false
+				}
 			}
 
 			results = append(results, gin.H{"userId": resp.UserID, "state": state})
@@ -185,20 +188,21 @@ func RedeployRange(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	// Check if already deploying
+	if utils.IsPoolDeploying(poolId) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Pool is already deploying"})
+		return
+	}
+
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedMainUserOnly)
+	if !ok {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
 	// Set pool as deploying
-	utils.SetPoolDeploymentState(poolId, utils.DeploymentStateDeploying)
+	utils.SetPoolDeploying(poolId)
 
 	// Start redeployment in background goroutine
 	go func() {
@@ -207,6 +211,9 @@ func RedeployRange(c *gin.Context) {
 		// Process users in batches
 		batchSize := concurrentRequests
 		for i := 0; i < len(userIds); i += batchSize {
+			if !utils.IsPoolDeploying(poolId) {
+				break
+			}
 			end := i + batchSize
 			if end > len(userIds) {
 				end = len(userIds)
@@ -272,10 +279,7 @@ func RedeployRange(c *gin.Context) {
 			// Step 4: Wait for all ranges in this batch to be destroyed
 			allUsersInBatch := append(usersToDestroy, usersToRedeploy...)
 			if len(allUsersInBatch) > 0 {
-				if !utils.WaitForBatchDestroyed(poolId, allUsersInBatch, apiKey, 30*time.Second) {
-					// Pool was aborted during destroy phase
-					return
-				}
+				utils.WaitForBatchDestroyed(allUsersInBatch, apiKey, 30*time.Second)
 			}
 
 			// Step 5: Redeploy all ranges that were destroyed
@@ -292,11 +296,8 @@ func RedeployRange(c *gin.Context) {
 				}
 				utils.MakeConcurrentLudusRequests(redeployRequests, apiKey, concurrentRequests)
 
-				// Step 6: Wait for this batch to finish deploying (or get aborted)
-				if !utils.WaitForBatchDeployment(poolId, allUsersInBatch, apiKey, 30*time.Second) {
-					// Some ranges were aborted, stop processing remaining batches
-					return
-				}
+				// Step 6: Wait for this batch to finish deploying
+				utils.WaitForBatchDeployment(allUsersInBatch, apiKey, 30*time.Second)
 			}
 		}
 	}() // Close the goroutine
@@ -315,22 +316,16 @@ func AbortRange(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedMainUserOnly)
+	if !ok {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Set pool as aborted to stop any ongoing deployment processes
-	utils.SetPoolDeploymentState(poolId, utils.DeploymentStateAborted)
+	// Clear deployment state to stop any ongoing deployment processes
+	utils.ClearPoolDeploymentState(poolId)
 
-	// Prepare concurrent requests
 	requests := make([]utils.LudusRequest, len(userIds))
 	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
@@ -341,18 +336,9 @@ func AbortRange(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -363,19 +349,13 @@ func RemoveRange(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedMainUserOnly)
+	if !ok {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
 	requests := make([]utils.LudusRequest, len(userIds))
 	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
@@ -386,18 +366,9 @@ func RemoveRange(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	utils.DeleteCtfdData(poolId)
 	c.JSON(http.StatusOK, gin.H{"results": results})

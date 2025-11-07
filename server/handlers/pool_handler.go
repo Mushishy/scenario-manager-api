@@ -3,6 +3,7 @@ package handlers
 import (
 	"dulus/server/config"
 	"dulus/server/utils"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,59 +23,24 @@ func PostPool(c *gin.Context) {
 	if !ok {
 		return
 	}
-
 	// Add createdBy to input
 	input["createdBy"] = userID
+	poolType, _ := input["type"].(string)
 
 	// Validate TopologyId
 	topologyId := input["topologyId"].(string)
-	if _, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId); !ok {
+	if _, ok := utils.ValidateFolderId(c, config.TopologyConfigFolder, topologyId); !ok {
 		return
 	}
 
-	// Process UsersAndTeams to add userId
+	// Validate and process UsersAndTeams
 	if usersAndTeams, ok := input["usersAndTeams"].([]interface{}); ok && len(usersAndTeams) > 0 {
-		if err := utils.ValidateUsersAndTeams(usersAndTeams); err != nil {
+		processedUsers, err := utils.ValidateAndProcessUsersAndTeams(usersAndTeams, poolType, utils.OperationCreate)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 			return
 		}
-
-		// Validate mainUser is not in usersAndTeams (only if mainUser is provided)
-		if mainUser, exists := input["mainUser"]; exists && mainUser != nil {
-			if mainUserStr, ok := mainUser.(string); ok && mainUserStr != "" {
-				if err := utils.ValidateMainUserNotInUsersAndTeams(mainUserStr, usersAndTeams); err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-					return
-				}
-			}
-		}
-
-		input["usersAndTeams"] = utils.ProcessUsersAndTeams(usersAndTeams)
-	}
-
-	// Validate MainUser for SHARED or CTFD types
-	if input["type"] == "SHARED" || input["type"] == "CTFD" {
-		if mainUser, ok := input["mainUser"].(string); !ok || mainUser == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-			return
-		} else {
-			// Check if mainUser is already used in another pool
-			isUsed, err := utils.IsMainUserAlreadyUsed(mainUser)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			}
-			if isUsed {
-				c.JSON(http.StatusConflict, gin.H{"error": "Main user is already assigned to another pool"})
-				return
-			}
-		}
-	}
-
-	err := utils.ValidateUsersNotMainUsers(input["usersAndTeams"].([]interface{}))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Users and Teams cannot contain Main Users from other pools"})
-		return
+		input["usersAndTeams"] = processedUsers
 	}
 
 	// Generate pool id and create folder
@@ -104,7 +70,7 @@ func PatchPoolTopology(c *gin.Context) {
 		return
 	}
 
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
@@ -116,18 +82,23 @@ func PatchPoolTopology(c *gin.Context) {
 
 	// Validate TopologyId exists
 	topologyId := input["topologyId"].(string)
-	if _, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId); !ok {
+	if _, ok := utils.ValidateFolderId(c, config.TopologyConfigFolder, topologyId); !ok {
 		return
 	}
 
-	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
 	if !ok {
 		return
 	}
 
-	poolData["topologyId"] = topologyId
+	pool.TopologyId = topologyId
 
-	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
+	// Convert to map for existing write helper
+	poolBytes, _ := json.Marshal(pool)
+	var poolMap map[string]interface{}
+	json.Unmarshal(poolBytes, &poolMap)
+
+	if !utils.WritePoolDataWithResponse(c, poolPath, poolMap) {
 		return
 	}
 
@@ -140,7 +111,7 @@ func PatchPoolNote(c *gin.Context) {
 		return
 	}
 
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
@@ -150,14 +121,20 @@ func PatchPoolNote(c *gin.Context) {
 		return
 	}
 
-	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
 	if !ok {
 		return
 	}
 
-	poolData["note"] = input["note"]
+	if noteStr, ok := input["note"].(string); ok {
+		pool.Note = noteStr
+	}
 
-	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
+	poolBytes, _ := json.Marshal(pool)
+	var poolMap map[string]interface{}
+	json.Unmarshal(poolBytes, &poolMap)
+
+	if !utils.WritePoolDataWithResponse(c, poolPath, poolMap) {
 		return
 	}
 
@@ -170,7 +147,7 @@ func PatchPoolUsers(c *gin.Context) {
 		return
 	}
 
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
@@ -180,50 +157,66 @@ func PatchPoolUsers(c *gin.Context) {
 		return
 	}
 
-	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
 	if !ok {
 		return
 	}
 
 	// Get new users from request
 	newUsersAndTeams, ok := input["usersAndTeams"].([]interface{})
-	if !ok || len(newUsersAndTeams) == 0 {
+	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	// Process new users to add userId (but don't validate yet)
-	processedNewUsers := utils.ProcessUsersAndTeams(newUsersAndTeams)
-
-	// Get existing users
+	// Convert existing pool.UsersAndTeams into []interface{}
+	existingBytes, _ := json.Marshal(pool.UsersAndTeams)
 	var existingUsersAndTeams []interface{}
-	if existing, exists := poolData["usersAndTeams"]; exists {
-		if existingUsers, ok := existing.([]interface{}); ok {
-			existingUsersAndTeams = existingUsers
+	json.Unmarshal(existingBytes, &existingUsersAndTeams)
+
+	// For SHARED pools, validate that new users' mainUserIds match existing ones
+	poolType := pool.Type
+	if poolType == "SHARED" && len(existingUsersAndTeams) > 0 {
+		// Create hashmap of existing mainUserIds
+		existingMainUserIds := make(map[string]bool)
+		for _, item := range existingUsersAndTeams {
+			if userMap, ok := item.(map[string]interface{}); ok {
+				if mainUserId, exists := userMap["mainUserId"].(string); exists && mainUserId != "" {
+					existingMainUserIds[mainUserId] = true
+				}
+			}
+		}
+
+		// Check that all new users' mainUserIds are in existing mainUserIds
+		for _, item := range newUsersAndTeams {
+			if userMap, ok := item.(map[string]interface{}); ok {
+				if mainUserId, exists := userMap["mainUserId"].(string); exists && mainUserId != "" {
+					if !existingMainUserIds[mainUserId] {
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+						return
+					}
+				}
+			}
 		}
 	}
 
 	// Combine existing and new users
-	combinedUsers := append(existingUsersAndTeams, processedNewUsers...)
+	combinedUsers := append(existingUsersAndTeams, newUsersAndTeams...)
 
-	// Validate the combined user list (includes team consistency check)
-	if err := utils.ValidateUsersAndTeams(combinedUsers); err != nil {
+	// Validate and process the combined user list
+	processedUsers, err := utils.ValidateAndProcessUsersAndTeams(combinedUsers, poolType, utils.OperationAdd)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
-	// Validate mainUser is not in combined users (only if mainUser exists)
-	if mainUser, exists := poolData["mainUser"].(string); exists && mainUser != "" {
-		if err := utils.ValidateMainUserNotInUsersAndTeams(mainUser, combinedUsers); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-			return
-		}
-	}
+	// Convert pool struct to map and set processed users
+	poolBytes, _ := json.Marshal(pool)
+	var poolMap map[string]interface{}
+	json.Unmarshal(poolBytes, &poolMap)
+	poolMap["usersAndTeams"] = processedUsers
 
-	// Update pool data with combined users
-	poolData["usersAndTeams"] = combinedUsers
-
-	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
+	if !utils.WritePoolDataWithResponse(c, poolPath, poolMap) {
 		return
 	}
 
@@ -233,34 +226,51 @@ func PatchPoolUsers(c *gin.Context) {
 func GetPool(c *gin.Context) {
 	poolId := utils.GetOptionalQueryParam(c, "poolId")
 	userIds := utils.GetOptionalQueryParam(c, "userIds")
+	mainUsers := utils.GetOptionalQueryParam(c, "mainUsers")
+
+	if mainUsers != "" && userIds != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
 
 	if poolId != "" {
-		poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+		poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 		if !ok {
 			return
 		}
 
-		poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+		pool, ok := utils.ReadPoolWithResponse(c, poolPath)
 		if !ok {
 			return
 		}
+
+		// Convert pool struct to map for endpoints that expect a map
+		poolBytes, _ := json.Marshal(pool)
+		var poolMap map[string]interface{}
+		json.Unmarshal(poolBytes, &poolMap)
 
 		if userIds == "true" {
-			userIdList := utils.ExtractUserIds(poolData)
+			userIdList, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
 			c.JSON(http.StatusOK, gin.H{"poolId": poolId, "userIds": userIdList})
 			return
 		}
 
-		poolData["poolId"] = poolId
-		poolData["ctfdData"] = utils.HasCtfdData(poolPath)
+		if mainUsers == "true" {
+			_, mainUsersList := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+			c.JSON(http.StatusOK, gin.H{"mainUsers": mainUsersList})
+			return
+		}
+
+		poolMap["poolId"] = poolId
+		poolMap["ctfdData"] = utils.HasCtfdData(poolPath)
 
 		// Get creation time from pool.json file (same logic as GetAllPools)
 		poolJsonPath := filepath.Join(poolPath, "pool.json")
 		if fileInfo, err := os.Stat(poolJsonPath); err == nil {
-			poolData["createdAt"] = fileInfo.ModTime()
+			poolMap["createdAt"] = fileInfo.ModTime()
 		}
 
-		c.JSON(http.StatusOK, poolData)
+		c.JSON(http.StatusOK, poolMap)
 		return
 	}
 
@@ -280,7 +290,7 @@ func DeletePool(c *gin.Context) {
 		return
 	}
 
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}

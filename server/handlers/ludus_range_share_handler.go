@@ -6,21 +6,11 @@ import (
 	"dulus/server/config"
 	"dulus/server/utils"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
-
-// RangeAccessItem represents a single range access entry from the Ludus API
-type RangeAccessItem struct {
-	TargetUserID  string   `json:"targetUserID"`
-	SourceUserIDs []string `json:"sourceUserIDs"`
-}
-
-// RangeAccessResponse represents the response from /range/access endpoint
-type RangeAccessResponse []RangeAccessItem
 
 func GetRangeAccess(c *gin.Context) {
 	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
@@ -28,19 +18,13 @@ func GetRangeAccess(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedUsersAndTeamsOnly)
+	if !ok {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
 	requests := make([]utils.LudusRequest, len(userIds))
 	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
@@ -51,7 +35,6 @@ func GetRangeAccess(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
 	// Collect valid configs first
@@ -102,7 +85,7 @@ func GetRangeAccess(c *gin.Context) {
 	zipWriter := zip.NewWriter(&zipBuffer)
 
 	// Create folder structure and add files
-	folderName := "wireguard-configs/"
+	folderName := "ludus-wireguard-configs-pool-" + string(poolId)
 
 	for _, config := range validConfigs {
 		fileName := folderName + config.userID + ".conf"
@@ -149,52 +132,45 @@ func ShareRange(c *gin.Context) {
 		return
 	}
 
-	targetId, ok := utils.GetRequiredQueryParam(c, "targetId")
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	if pool.Type != "SHARED" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pool must be of type SHARED"})
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(userIds))
-	for i, userID := range userIds {
-		payload := gin.H{
-			"action":       "grant",
-			"targetUserID": targetId,
-			"sourceUserID": userID,
-			"force":        true,
-		}
-		requests[i] = utils.LudusRequest{
-			Method:  "POST",
-			URL:     config.LudusUrl + "/range/access",
-			Payload: payload,
-			UserID:  userID,
+	// each user shares to their main user
+	var requests []utils.LudusRequest
+	for _, userTeam := range pool.UsersAndTeams {
+		if userTeam.MainUserId != "" {
+			payload := gin.H{
+				"action":       "grant",
+				"targetUserID": userTeam.MainUserId,
+				"sourceUserID": userTeam.UserId,
+				"force":        true,
+			}
+			requests = append(requests, utils.LudusRequest{
+				Method:  "POST",
+				URL:     config.LudusUrl + "/range/access",
+				Payload: payload,
+				UserID:  userTeam.UserId,
+			})
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -205,52 +181,45 @@ func UnshareRange(c *gin.Context) {
 		return
 	}
 
-	targetId, ok := utils.GetRequiredQueryParam(c, "targetId")
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	if pool.Type != "SHARED" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pool must be of type SHARED"})
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(userIds))
-	for i, userID := range userIds {
-		payload := gin.H{
-			"action":       "revoke",
-			"targetUserID": targetId,
-			"sourceUserID": userID,
-			"force":        true,
-		}
-		requests[i] = utils.LudusRequest{
-			Method:  "POST",
-			URL:     config.LudusUrl + "/range/access",
-			Payload: payload,
-			UserID:  userID,
+	// each user unshares from their main user
+	var requests []utils.LudusRequest
+	for _, userTeam := range pool.UsersAndTeams {
+		if userTeam.MainUserId != "" {
+			payload := gin.H{
+				"action":       "revoke",
+				"targetUserID": userTeam.MainUserId,
+				"sourceUserID": userTeam.UserId,
+				"force":        true,
+			}
+			requests = append(requests, utils.LudusRequest{
+				Method:  "POST",
+				URL:     config.LudusUrl + "/range/access",
+				Payload: payload,
+				UserID:  userTeam.UserId,
+			})
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -261,18 +230,19 @@ func GetSharedRanges(c *gin.Context) {
 		return
 	}
 
-	targetId, ok := utils.GetRequiredQueryParam(c, "targetId")
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedUsersAndTeamsOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	// Check if pool type is SHARED
+	if pool.Type != "SHARED" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pool must be of type SHARED"})
 		return
 	}
 
@@ -283,27 +253,53 @@ func GetSharedRanges(c *gin.Context) {
 		return
 	}
 
-	// Parse response into our struct
-	var rangeAccess RangeAccessResponse
-	responseBytes, _ := json.Marshal(response)
-	json.Unmarshal(responseBytes, &rangeAccess)
+	// Parse response as generic interface
+	rangeAccessList, ok := response.([]interface{})
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid response format"})
+		return
+	}
 
-	shared := false
-	unshared := true
+	allShared := true
+	anyShared := false
 
-	// Find the target user and check if all pool users are in sourceUserIDs
-	for _, item := range rangeAccess {
-		if item.TargetUserID == targetId {
-			unshared = false
-			if len(userIds) > 0 && utils.ContainsAll(item.SourceUserIDs, userIds) {
-				shared = true
+	// Check each user-mainUser pair in the pool
+	for _, userTeam := range pool.UsersAndTeams {
+		if userTeam.MainUserId == "" {
+			continue // Skip users without mainUserId
+		}
+
+		isShared := false
+
+		// Check if this user is shared to their main user
+		for _, item := range rangeAccessList {
+			if itemMap, ok := item.(map[string]interface{}); ok {
+				if targetUserID, exists := itemMap["targetUserID"]; exists && targetUserID == userTeam.MainUserId {
+					if sourceUserIDs, exists := itemMap["sourceUserIDs"]; exists {
+						if sourceList, ok := sourceUserIDs.([]interface{}); ok {
+							for _, sourceID := range sourceList {
+								if sourceID == userTeam.UserId {
+									isShared = true
+									anyShared = true
+									break
+								}
+							}
+						}
+					}
+				}
 			}
-			break
+			if isShared {
+				break
+			}
+		}
+
+		if !isShared {
+			allShared = false
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"shared":   shared,
-		"unshared": unshared,
+		"shared":   allShared,
+		"unshared": !anyShared,
 	})
 }

@@ -1,9 +1,14 @@
 package utils
 
 import (
+	"dulus/server/config"
+	"encoding/base64"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // FileInfo represents file information
@@ -68,32 +73,144 @@ func EnsureDirectoryExists(path string) error {
 // FileExists checks if a file exists
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
+	return err == nil
 }
 
-// GetAllItems returns all items in a directory with their basic info
-func GetAllItems(baseFolder string) ([]ItemInfo, error) {
-	var items []ItemInfo
-
-	files, err := os.ReadDir(baseFolder)
-	if err != nil {
-		return nil, err
+// GetSingleItemWithFile gets a single item by ID with its first file encoded as base64
+func GetSingleItemWithFile(c *gin.Context, baseFolder, itemId, itemType string) {
+	itemPath, ok := ValidateFolderId(c, baseFolder, itemId)
+	if !ok {
+		return
 	}
 
-	for _, file := range files {
-		if file.IsDir() {
-			itemPath := filepath.Join(baseFolder, file.Name())
-			fileInfo, err := os.Stat(itemPath)
-			if err != nil {
-				continue // Skip items we can't stat
+	fileInfo, err := ReadFirstFileInDir(itemPath)
+	if HandleFileReadError(c, err) {
+		return
+	}
+
+	encoded := base64.StdEncoding.EncodeToString([]byte(fileInfo.Content))
+
+	c.JSON(http.StatusOK, gin.H{
+		itemType + "Id":   itemId,
+		itemType + "Name": fileInfo.Name,
+		itemType + "File": encoded,
+		"createdAt":       fileInfo.CreationTime.Format(config.TimestampFormat),
+	})
+}
+
+// GetAllItemsWithFileNames gets all items in a folder with their file names
+func GetAllItemsWithFileNames(c *gin.Context, baseFolder, itemType string) {
+	items, err := os.ReadDir(baseFolder)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	var itemList []gin.H
+	for _, item := range items {
+		if item.IsDir() {
+			itemPath := filepath.Join(baseFolder, item.Name())
+
+			// Try to read first file for name and creation time
+			fileInfo, err := ReadFirstFileInDir(itemPath)
+			var fileName string
+			var createdAt string
+
+			if err == nil {
+				fileName = fileInfo.Name
+				createdAt = fileInfo.CreationTime.Format(config.TimestampFormat)
+			} else {
+				// Fallback to directory modification time
+				dirInfo, dirErr := os.Stat(itemPath)
+				if dirErr == nil {
+					createdAt = dirInfo.ModTime().Format(config.TimestampFormat)
+				}
 			}
 
-			items = append(items, ItemInfo{
-				ID:           file.Name(),
-				CreationTime: fileInfo.ModTime(),
+			itemList = append(itemList, gin.H{
+				itemType + "Id":   item.Name(),
+				itemType + "Name": fileName,
+				"createdAt":       createdAt,
 			})
 		}
 	}
 
-	return items, nil
+	c.JSON(http.StatusOK, itemList)
+}
+
+// SaveUploadedFile handles a single uploaded file for an item folder.
+// If providedId is empty a new ID is generated. It validates the file extension,
+// optionally removes existing content when updating, saves the uploaded file and
+// returns the item ID on success.
+func SaveUploadedFile(c *gin.Context, baseFolder, providedId, expectedExt string) (string, bool) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return "", false
+	}
+
+	if filepath.Ext(file.Filename) != expectedExt {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return "", false
+	}
+
+	var itemId string
+	var itemPath string
+
+	if providedId != "" {
+		// Validate existing folder
+		validatedPath, ok := ValidateFolderId(c, baseFolder, providedId)
+		if !ok {
+			return "", false
+		}
+		itemId = providedId
+		itemPath = validatedPath
+	} else {
+		// Create new folder with generated id
+		newId, err := GenerateUniqueID(baseFolder)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return "", false
+		}
+		itemId = newId
+		itemPath = filepath.Join(baseFolder, itemId)
+		if err := os.MkdirAll(itemPath, os.ModePerm); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return "", false
+		}
+	}
+
+	// If updating, clean the folder
+	if providedId != "" {
+		if err := os.RemoveAll(itemPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return "", false
+		}
+		if err := os.MkdirAll(itemPath, os.ModePerm); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return "", false
+		}
+	}
+
+	// Save uploaded file
+	destPath := filepath.Join(itemPath, file.Filename)
+	if err := c.SaveUploadedFile(file, destPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return "", false
+	}
+
+	return itemId, true
+}
+
+// HandleFileReadError handles common file reading errors with HTTP responses
+func HandleFileReadError(c *gin.Context, err error) bool {
+	if err == os.ErrNotExist {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return true
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return true
+	}
+	return false
 }

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"crypto/tls"
 	"dulus/server/config"
 	"encoding/json"
 	"fmt"
@@ -14,14 +13,12 @@ import (
 	"time"
 )
 
-// ProxmoxClient represents a client for Proxmox API
 type ProxmoxClient struct {
 	BaseURL    string
 	HTTPClient *http.Client
 }
 
-// AuthResponse represents the Proxmox authentication response
-type AuthResponse struct {
+type ProxmoxAuthResponse struct {
 	Data struct {
 		CSRFPreventionToken string                 `json:"CSRFPreventionToken"`
 		Ticket              string                 `json:"ticket"`
@@ -30,8 +27,11 @@ type AuthResponse struct {
 	} `json:"data"`
 }
 
-// Resource represents a single resource from Proxmox cluster
-type Resource struct {
+type ProxmoxClusterResourcesResponse struct {
+	Data []ProxmoxResource `json:"data"`
+}
+
+type ProxmoxResource struct {
 	ID       string  `json:"id"`
 	Type     string  `json:"type"`
 	Node     string  `json:"node,omitempty"`
@@ -49,12 +49,6 @@ type Resource struct {
 	Uptime   int     `json:"uptime,omitempty"`
 }
 
-// ClusterResourcesResponse represents the response from /cluster/resources
-type ClusterResourcesResponse struct {
-	Data []Resource `json:"data"`
-}
-
-// ProxmoxStatistics represents the complete statistics response
 type ProxmoxStatistics struct {
 	Users              int     `json:"users"`
 	Templates          int     `json:"templates"`
@@ -73,19 +67,15 @@ type ProxmoxStatistics struct {
 	UptimeFormatted    string  `json:"uptimeFormatted"`
 }
 
-// NewProxmoxClient creates a new Proxmox client
 func NewProxmoxClient(baseURL string) *ProxmoxClient {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
 	return &ProxmoxClient{
 		BaseURL:    baseURL,
-		HTTPClient: &http.Client{Transport: tr},
+		HTTPClient: createHTTPClient(),
 	}
 }
 
-// Authenticate authenticates with Proxmox and returns auth data
-func (p *ProxmoxClient) Authenticate(username, password string) (*AuthResponse, error) {
+// AuthenticateProxmox authenticates with Proxmox and returns auth data
+func (p *ProxmoxClient) AuthenticateProxmox(username, password string) (*ProxmoxAuthResponse, error) {
 	authURL := fmt.Sprintf("%s/api2/json/access/ticket", p.BaseURL)
 
 	data := url.Values{}
@@ -114,7 +104,7 @@ func (p *ProxmoxClient) Authenticate(username, password string) (*AuthResponse, 
 		return nil, fmt.Errorf("failed to read auth response: %w", err)
 	}
 
-	var authResp AuthResponse
+	var authResp ProxmoxAuthResponse
 	if err := json.Unmarshal(body, &authResp); err != nil {
 		return nil, fmt.Errorf("failed to parse auth response: %w", err)
 	}
@@ -123,7 +113,7 @@ func (p *ProxmoxClient) Authenticate(username, password string) (*AuthResponse, 
 }
 
 // GetClusterResources fetches cluster resources using authenticated session
-func (p *ProxmoxClient) GetClusterResources(auth *AuthResponse) (*ClusterResourcesResponse, error) {
+func (p *ProxmoxClient) GetClusterResources(auth *ProxmoxAuthResponse) (*ProxmoxClusterResourcesResponse, error) {
 	resourcesURL := fmt.Sprintf("%s/api2/json/cluster/resources", p.BaseURL)
 
 	req, err := http.NewRequest("GET", resourcesURL, nil)
@@ -153,7 +143,7 @@ func (p *ProxmoxClient) GetClusterResources(auth *AuthResponse) (*ClusterResourc
 		return nil, fmt.Errorf("failed to read resources response: %w", err)
 	}
 
-	var resourcesResp ClusterResourcesResponse
+	var resourcesResp ProxmoxClusterResourcesResponse
 	if err := json.Unmarshal(body, &resourcesResp); err != nil {
 		return nil, fmt.Errorf("failed to parse resources response: %w", err)
 	}
@@ -162,10 +152,10 @@ func (p *ProxmoxClient) GetClusterResources(auth *AuthResponse) (*ClusterResourc
 }
 
 // ParseStatistics processes cluster resources and returns statistics
-func ParseStatistics(resources *ClusterResourcesResponse, apiKey string) *ProxmoxStatistics {
+func ParseStatistics(resources *ProxmoxClusterResourcesResponse, apiKey string) *ProxmoxStatistics {
 	stats := &ProxmoxStatistics{}
 
-	var nodeResource *Resource
+	var nodeResource *ProxmoxResource
 	var totalDiskUsed int64
 	var totalDiskMax int64
 
@@ -274,11 +264,7 @@ func countDirectories(dirPath string) int {
 
 // getRolesCount gets the number of roles from Ludus API
 func getRolesCount(apiKey string) int {
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
+	client := createHTTPClient()
 
 	req, err := http.NewRequest("GET", config.LudusUrl+"/ansible", nil)
 	if err != nil {

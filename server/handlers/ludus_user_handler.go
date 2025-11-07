@@ -14,19 +14,13 @@ func ImportUsers(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedAllUsers)
+	if !ok {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
 	requests := make([]utils.LudusRequest, len(userIds))
 	for i, userID := range userIds {
 		payload := gin.H{
@@ -42,18 +36,9 @@ func ImportUsers(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -62,17 +47,12 @@ func DeleteUsers(c *gin.Context) {
 	poolId := utils.GetOptionalQueryParam(c, "poolId")
 
 	var userIds []string
-	var err error
 
 	if poolId != "" {
-		// Delete users by poolId (existing functionality)
-		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
-		if err != nil {
-			if err.Error() == "pool not found" {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-			} else {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			}
+		// Delete users by poolId
+		var ok bool
+		userIds, ok = utils.GetUserIdsFromPool(c, poolId, utils.SharedAllUsers)
+		if !ok {
 			return
 		}
 	} else {
@@ -96,7 +76,6 @@ func DeleteUsers(c *gin.Context) {
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
 	requests := make([]utils.LudusRequest, len(userIds))
 	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
@@ -107,18 +86,9 @@ func DeleteUsers(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -129,19 +99,13 @@ func CheckUsers(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedAllUsers)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedAllUsers)
+	if !ok {
 		return
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
 	requests := make([]utils.LudusRequest, len(userIds))
 	for i, userID := range userIds {
 		requests[i] = utils.LudusRequest{
@@ -152,7 +116,6 @@ func CheckUsers(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
 	// Collect IDs of users that don't exist

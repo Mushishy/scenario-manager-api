@@ -3,7 +3,6 @@ package handlers
 import (
 	"dulus/server/config"
 	"dulus/server/utils"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -15,31 +14,22 @@ func SetRangeConfig(c *gin.Context) {
 		return
 	}
 
-	// Get pool data to retrieve topology ID
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
 
-	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
 	if !ok {
 		return
 	}
 
-	topologyId := poolData["topologyId"].(string)
-
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedMainUserOnly)
+	if !ok {
 		return
 	}
 
-	// Validate topology exists
-	topologyPath, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId)
+	topologyPath, ok := utils.ValidateFolderId(c, config.TopologyConfigFolder, pool.TopologyId)
 	if !ok {
 		return
 	}
@@ -52,27 +42,9 @@ func SetRangeConfig(c *gin.Context) {
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Upload to all users
 	responses := utils.MakeConcurrentFileUploads(userIds, fileInfo.Content, true, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	var errors []string
-
-	for _, resp := range responses {
-		if resp.Error != nil {
-			errors = append(errors, fmt.Sprintf("User %s: %s", resp.UserID, resp.Error.Error()))
-		} else if errorMessage, ok := resp.Response.(map[string]interface{})["error"]; ok {
-			errors = append(errors, fmt.Sprintf("User %s: %s", resp.UserID, errorMessage))
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
-
-	if len(errors) > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"errors": errors})
-		return
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -83,21 +55,17 @@ func GetRangeConfig(c *gin.Context) {
 		return
 	}
 
-	// Get pool data to retrieve topology ID
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
 
-	poolData, ok := utils.ReadPoolDataWithResponse(c, poolPath)
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
 	if !ok {
 		return
 	}
 
-	topologyId := poolData["topologyId"].(string)
-
-	// Get the expected topology configuration
-	topologyPath, ok := utils.ValidateFolderWithResponse(c, config.TopologyConfigFolder, topologyId)
+	topologyPath, ok := utils.ValidateFolderId(c, config.TopologyConfigFolder, pool.TopologyId)
 	if !ok {
 		return
 	}
@@ -107,13 +75,8 @@ func GetRangeConfig(c *gin.Context) {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+	userIds, ok := utils.GetUserIdsFromPool(c, poolId, utils.SharedMainUserOnly)
+	if !ok {
 		return
 	}
 

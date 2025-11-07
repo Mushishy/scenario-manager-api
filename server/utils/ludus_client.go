@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"crypto/tls"
 	"dulus/server/config"
 	"encoding/json"
 	"fmt"
@@ -10,8 +9,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,45 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Global deployment state manager
-var (
-	deploymentStates = make(map[string]string) // poolId -> status ("deploying", "aborted")
-	deploymentMutex  sync.RWMutex
-)
-
-// Deployment state constants
-const (
-	DeploymentStateDeploying = "deploying"
-	DeploymentStateAborted   = "aborted"
-)
-
-// SetPoolDeploymentState sets the deployment state for a pool
-func SetPoolDeploymentState(poolId, state string) {
-	deploymentMutex.Lock()
-	defer deploymentMutex.Unlock()
-	deploymentStates[poolId] = state
-}
-
-// GetPoolDeploymentState gets the deployment state for a pool
-func GetPoolDeploymentState(poolId string) string {
-	deploymentMutex.RLock()
-	defer deploymentMutex.RUnlock()
-	return deploymentStates[poolId]
-}
-
-// IsPoolAborted checks if a pool deployment has been aborted
-func IsPoolAborted(poolId string) bool {
-	return GetPoolDeploymentState(poolId) == DeploymentStateAborted
-}
-
-// ClearPoolDeploymentState removes the deployment state for a pool
-func ClearPoolDeploymentState(poolId string) {
-	deploymentMutex.Lock()
-	defer deploymentMutex.Unlock()
-	delete(deploymentStates, poolId)
-}
-
-// Core types
 type LudusRequest struct {
 	Method  string
 	URL     string
@@ -73,7 +31,6 @@ type LudusResponse struct {
 	Error    error
 }
 
-// Pool-related types
 type UserDetails struct {
 	Username string
 	Team     string
@@ -90,29 +47,12 @@ type Pool struct {
 	Note          string `json:"note"`
 	TopologyId    string `json:"topologyId"`
 	Type          string `json:"type"`
-	MainUser      string `json:"mainUser,omitempty"`
 	UsersAndTeams []struct {
-		User   string `json:"user"`
-		UserId string `json:"userId"`
-		Team   string `json:"team,omitempty"`
+		User       string `json:"user"`
+		UserId     string `json:"userId"`
+		Team       string `json:"team,omitempty"`
+		MainUserId string `json:"mainUserId,omitempty"`
 	} `json:"usersAndTeams"`
-}
-
-// CTFd-related types
-type Flag struct {
-	Variable string      `json:"variable"`
-	Contents interface{} `json:"contents"`
-}
-
-type CtfdUser struct {
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Team     string `json:"team,omitempty"`
-	Flags    []Flag `json:"flags"`
-}
-
-type CtfdData struct {
-	CtfdData []CtfdUser `json:"ctfd_data"`
 }
 
 // Range status types
@@ -122,14 +62,6 @@ type RangeStatus struct {
 
 type LogResult struct {
 	Result string `json:"result"`
-}
-
-// createHTTPClient creates HTTP client with TLS verification disabled
-func createHTTPClient() *http.Client {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	return &http.Client{Transport: tr}
 }
 
 // MakeConcurrentLudusRequests processes multiple Ludus requests concurrently
@@ -349,60 +281,130 @@ func AllRangesDeployed(userIds []string, apiKey string, c *gin.Context) bool {
 	return true
 }
 
-// GetUserDetailsFromPool reads pool.json and returns a map of user details
-func GetUserDetailsFromPool(poolPath string) (map[string]UserDetails, error) {
-	poolJsonPath := filepath.Join(poolPath, "pool.json")
-	poolData, err := os.ReadFile(poolJsonPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read pool data")
-	}
+// WaitForBatchDestroyed waits until all users in batch are destroyed
+func WaitForBatchDestroyed(userIds []string, apiKey string, checkInterval time.Duration) {
+	for {
+		allDestroyed := true
 
-	var pool Pool
-	if err := json.Unmarshal(poolData, &pool); err != nil {
-		return nil, fmt.Errorf("failed to parse pool data")
-	}
-
-	userDetailMap := make(map[string]UserDetails)
-	for _, userTeam := range pool.UsersAndTeams {
-		userDetailMap[userTeam.UserId] = UserDetails{
-			Username: userTeam.User,
-			Team:     userTeam.Team,
+		// Check status of all users in batch
+		requests := make([]LudusRequest, len(userIds))
+		for i, userID := range userIds {
+			requests[i] = LudusRequest{
+				Method: "GET",
+				URL:    config.LudusUrl + "/range/?userID=" + userID,
+				UserID: userID,
+			}
 		}
+
+		responses := MakeConcurrentLudusRequests(requests, apiKey, len(userIds))
+
+		for _, resp := range responses {
+			if resp.Error != nil {
+				continue // Error might mean destroyed or not found
+			}
+
+			state := "unknown"
+			if resp.Response != nil {
+				// Handle both string and map responses
+				switch response := resp.Response.(type) {
+				case map[string]interface{}:
+					if rangeState, exists := response["rangeState"]; exists {
+						state = rangeState.(string)
+					}
+				case string:
+					state = response
+				}
+			}
+
+			// If any user is still destroying, we're not done
+			if state == "DESTROYING" {
+				allDestroyed = false
+				break
+			}
+		}
+
+		// If all destroyed, continue
+		if allDestroyed {
+			return
+		}
+
+		time.Sleep(checkInterval)
 	}
-	return userDetailMap, nil
 }
 
-// ExtractFlagsFromLogs gets logs and extracts flags for all users
-func ExtractFlagsFromLogs(userIds []string, userDetailMap map[string]UserDetails, apiKey string) []CtfdUser {
+// WaitForBatchDeployment waits until all users in batch are deployed or failed
+func WaitForBatchDeployment(userIds []string, apiKey string, checkInterval time.Duration) {
+	for {
+		allDone := true
+		// Check status of all users in batch
+		requests := make([]LudusRequest, len(userIds))
+		for i, userID := range userIds {
+			requests[i] = LudusRequest{
+				Method: "GET",
+				URL:    config.LudusUrl + "/range/?userID=" + userID,
+				UserID: userID,
+			}
+		}
+
+		responses := MakeConcurrentLudusRequests(requests, apiKey, len(userIds))
+
+		for _, resp := range responses {
+			if resp.Error != nil {
+				continue // Error = done (failed)
+			}
+
+			state := "unknown"
+			if resp.Response != nil {
+				if rangeState, exists := resp.Response.(map[string]interface{})["rangeState"]; exists {
+					state = rangeState.(string)
+				}
+			}
+
+			// If any user is still deploying, we're not done
+			if state == "DEPLOYING" {
+				allDone = false
+			}
+		}
+
+		// If all done, continue to next batch
+		if allDone {
+			return
+		}
+
+		time.Sleep(checkInterval)
+	}
+}
+
+// GetFlagsForUsers retrieves flags for multiple users concurrently
+func GetFlagsForUsers(c *gin.Context, userIds []string, apiKey string) (map[string][]Flag, bool) {
 	requests := make([]LudusRequest, len(userIds))
-	for i, userID := range userIds {
+	for i, userId := range userIds {
 		requests[i] = LudusRequest{
-			Method: "GET",
-			URL:    config.LudusUrl + "/range/logs/?userID=" + userID,
-			UserID: userID,
+			Method:  "GET",
+			URL:     config.LudusUrl + "/range/logs/?userID=" + userId,
+			Payload: nil,
+			UserID:  userId,
 		}
 	}
 
 	responses := MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+
+	// Process responses and create a map of userId -> flags
+	userFlagsMap := make(map[string][]Flag)
 	flagPattern := regexp.MustCompile(`&%&(.*?)&%&`)
-	var ctfdUsers []CtfdUser
 
 	for _, resp := range responses {
-		userDetails, exists := userDetailMap[resp.UserID]
-		if !exists {
-			continue // Skip users not found in pool data
+		if resp.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get flags for user: " + resp.UserID})
+			return nil, false
 		}
 
-		ctfdUser := CtfdUser{
-			User:     userDetails.Username,
-			Password: RandomString(6),
-			Team:     userDetails.Team,
-			Flags:    ExtractUserFlags(resp, flagPattern),
-		}
-
-		ctfdUsers = append(ctfdUsers, ctfdUser)
+		// Extract flags for this user
+		flags := ExtractUserFlags(resp, flagPattern)
+		userFlagsMap[resp.UserID] = flags
 	}
-	return ctfdUsers
+
+	return userFlagsMap, true
 }
 
 // ExtractUserFlags extracts flags from a single user's log response
@@ -441,100 +443,4 @@ func ExtractUserFlags(resp LudusResponse, flagPattern *regexp.Regexp) []Flag {
 		})
 	}
 	return flags
-}
-
-// WaitForBatchDestroyed waits until all users in batch are destroyed
-func WaitForBatchDestroyed(poolId string, userIds []string, apiKey string, checkInterval time.Duration) bool {
-	for {
-		// Check global deployment state first
-		if IsPoolAborted(poolId) {
-			return false
-		}
-
-		allDestroyed := true
-
-		// Check status of all users in batch
-		requests := make([]LudusRequest, len(userIds))
-		for i, userID := range userIds {
-			requests[i] = LudusRequest{
-				Method: "GET",
-				URL:    config.LudusUrl + "/range/?userID=" + userID,
-				UserID: userID,
-			}
-		}
-
-		responses := MakeConcurrentLudusRequests(requests, apiKey, len(userIds))
-
-		for _, resp := range responses {
-			if resp.Error != nil {
-				continue // Error might mean destroyed or not found
-			}
-
-			state := "unknown"
-			if resp.Response != nil {
-				if rangeState, exists := resp.Response.(map[string]interface{})["rangeState"]; exists {
-					state = rangeState.(string)
-				}
-			}
-
-			// If any user is still destroying, we're not done
-			if state == "DESTROYING" {
-				allDestroyed = false
-				break
-			}
-		}
-
-		// If all destroyed, continue
-		if allDestroyed {
-			return true
-		}
-
-		time.Sleep(checkInterval)
-	}
-} // WaitForBatchDeployment waits until all users in batch are deployed, failed, or aborted
-func WaitForBatchDeployment(poolId string, userIds []string, apiKey string, checkInterval time.Duration) bool {
-	for {
-		// Check global deployment state first
-		if IsPoolAborted(poolId) {
-			return false
-		}
-
-		allDone := true
-		// Check status of all users in batch
-		requests := make([]LudusRequest, len(userIds))
-		for i, userID := range userIds {
-			requests[i] = LudusRequest{
-				Method: "GET",
-				URL:    config.LudusUrl + "/range/?userID=" + userID,
-				UserID: userID,
-			}
-		}
-
-		responses := MakeConcurrentLudusRequests(requests, apiKey, len(userIds))
-
-		for _, resp := range responses {
-			if resp.Error != nil {
-				continue // Error = done (failed)
-			}
-
-			state := "unknown"
-			if resp.Response != nil {
-				if rangeState, exists := resp.Response.(map[string]interface{})["rangeState"]; exists {
-					state = rangeState.(string)
-				}
-			}
-
-			// If any user is still deploying, we're not done
-			if state == "DEPLOYING" || state == "BUILDING" {
-				allDone = false
-			}
-		}
-
-		// If all done, continue to next batch
-		if allDone {
-			return true
-		}
-
-		time.Sleep(checkInterval)
-	}
 }

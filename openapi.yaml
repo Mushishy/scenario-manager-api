@@ -234,7 +234,7 @@ paths:
   /pool:
     post:
       summary: Create a new pool
-      description: Create a new pool with topology, users, and optional CTFd data
+      description: Create a new pool with topology, users, and optional teams
       tags:
         - Pool
       requestBody:
@@ -246,15 +246,11 @@ paths:
               properties:
                 type:
                   type: string
-                  enum: ["CTFD", "SHARED", "INDIVIDUAL"]  # Fixed: was ["SHARED", "INDIVIDUAL", "TEAM"]
+                  enum: ["SHARED", "INDIVIDUAL"]
                   example: "SHARED"
                 topologyId:
                   type: string
-                  example: "KFfeQZ"  # Removed pattern - your code doesn't validate this
-                mainUser:
-                  type: string
-                  example: "instructor1"
-                  description: "Required for SHARED or INDIVIDUAL types"
+                  example: "H4tCgb"
                 usersAndTeams:
                   type: array
                   items:
@@ -266,17 +262,20 @@ paths:
                       team:
                         type: string
                         example: "Red Team"
+                      mainUserId:
+                        type: string
+                        example: "instructor1"
+                        description: "Required for SHARED pools only"
                     required:
                       - user
                     additionalProperties: false
                 note:
                   type: string
-                  maxLength: 15
-                  example: "Training"
+                  example: "Training session"
               required:
                 - type
                 - topologyId
-                - note  # Added: this is required in your schema
+                - usersAndTeams
               additionalProperties: false
       responses:
         '200':
@@ -291,29 +290,51 @@ paths:
                     example: "Uploaded successfully"
                   id:
                     type: string
-                    example: "ABC123"  # Fixed: uses generated ID format
+                    example: "A1B2C3"
         '400':
           description: Bad Request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Topology or CTFd data not found
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Malformed API Key provided"
+        '404':
+          description: Topology not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
         '500':
           description: Internal Server Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
 
     get:
       summary: Get pools
-      description: Get a specific pool or list all pools
+      description: Get a specific pool or list all pools, with optional filtering for userIds or mainUsers
       tags:
         - Pool
       parameters:
@@ -326,8 +347,16 @@ paths:
         - name: userIds
           in: query
           schema:
-            type: boolean
-          description: If set to "true", returns only userIds for the specified pool
+            type: string
+            enum: ["true"]
+          description: If set to "true", returns only userIds for the specified pool (requires poolId)
+          example: "true"
+        - name: mainUsers
+          in: query
+          schema:
+            type: string
+            enum: ["true"]
+          description: If set to "true", returns only mainUsers for the specified pool (requires poolId, cannot be used with userIds)
           example: "true"
       responses:
         '200':
@@ -352,14 +381,11 @@ paths:
                         example: "2025-08-30T14:30:45Z"
                       type:
                         type: string
-                        enum: ["CTFD", "SHARED", "INDIVIDUAL"]
+                        enum: ["SHARED", "INDIVIDUAL"]
                         example: "SHARED"
                       topologyId:
                         type: string
-                        example: "XYZ789"
-                      mainUser:
-                        type: string
-                        example: "instructor1"
+                        example: "H4tCgb"
                       usersAndTeams:
                         type: array
                         items:
@@ -374,9 +400,12 @@ paths:
                             team:
                               type: string
                               example: "Red Team"
+                            mainUserId:
+                              type: string
+                              example: "instructor1"
+                              description: "Present only for SHARED pools"
                       note:
                         type: string
-                        maxLength: 15
                         example: "Training session"
                       ctfdData:
                         type: boolean
@@ -393,6 +422,17 @@ paths:
                         items:
                           type: string
                         example: ["BATCHalicedanmayers", "BATCHbobsmith"]
+                  - type: object
+                    description: Single pool (mainUsers only)
+                    properties:
+                      poolId:
+                        type: string
+                        example: "ABC123"
+                      mainUsers:
+                        type: array
+                        items:
+                          type: string
+                        example: ["instructor1", "instructor2"]
                   - type: array
                     description: List of all pools
                     items:
@@ -411,37 +451,48 @@ paths:
                           example: "2025-08-30T14:30:45Z"
                         type:
                           type: string
-                          enum: ["CTFD", "SHARED", "INDIVIDUAL"]
+                          enum: ["SHARED", "INDIVIDUAL"]
                           example: "SHARED"
                         topologyId:
                           type: string
-                          example: "XYZ789"
+                          example: "H4tCgb"
                         note:
                           type: string
-                          maxLength: 15
                           example: "Training session"
                         ctfdData:
                           type: boolean
                           description: Indicates if CTFD data is available for this pool
                           example: true
         '400':
-          description: Bad Request
+          description: Bad Request - Invalid parameters (e.g., both userIds and mainUsers specified)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
         '404':
           description: Pool not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
         '500':
           description: Internal Server Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
 
     delete:
       summary: Delete a pool
@@ -659,7 +710,7 @@ paths:
                 $ref: '#/components/schemas/Error'
     patch:
       summary: Add users to pool
-      description: Add new users to an existing pool, combining them with existing users
+      description: Add new users to an existing pool, combining them with existing users. Pool type determines mainUserId requirements.
       tags:
         - Pool
       parameters:
@@ -678,8 +729,14 @@ paths:
             schema:
               type: object
               required:
+                - type
                 - usersAndTeams
               properties:
+                type:
+                  type: string
+                  enum: ["SHARED", "INDIVIDUAL"]
+                  description: Pool type - must match existing pool type
+                  example: "SHARED"
                 usersAndTeams:
                   type: array
                   minItems: 1
@@ -696,6 +753,12 @@ paths:
                         type: string
                         description: Team name (optional, but if one user has a team, all must have teams)
                         example: "Red Team"
+                      mainUserId:
+                        type: string
+                        description: Main user ID (required for SHARED pools, not allowed for INDIVIDUAL pools, must match existing mainUserIds when adding to SHARED pool)
+                        example: "instructor1"
+                  description: List of users to add to the pool
+              additionalProperties: false
       responses:
         '200':
           description: Users added successfully
@@ -708,23 +771,35 @@ paths:
                     type: string
                     example: "Users added successfully"
         '400':
-          description: Bad Request - Invalid request body, no users provided, or team consistency violation
+          description: Bad Request - Invalid request body, duplicate users, team consistency violation, mainUserId mismatch, or users already exist in other pools
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
         '404':
           description: Pool Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
         '500':
           description: Internal Server Error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
 
   # Ctfd Data
   /ctfd/data:
@@ -1197,89 +1272,9 @@ paths:
                 
   # Ludus Range Sharing
   /range/access:
-      get:
-        summary: Get WireGuard access configs for pool users
-        description: Download WireGuard configuration files for all users in a pool as a base64-encoded ZIP file
-        tags:
-          - Ludus Range Sharing
-        parameters:
-          - name: poolId
-            in: query
-            required: true
-            schema:
-              type: string
-              pattern: "^[a-zA-Z0-9]{6}$"
-            description: Pool ID to get users from
-            example: "ABC123"
-        responses:
-          '200':
-            description: Base64-encoded ZIP file containing WireGuard configurations
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    filename:
-                      type: string
-                      description: Suggested filename for the ZIP file
-                      example: "ABC123.zip"
-                    data:
-                      type: string
-                      format: byte
-                      description: Base64-encoded ZIP file containing WireGuard configs in wireguard-configs/ folder
-                      example: "UEsDBBQAAAAIAG5kJVnzNwAA8T..."
-                    size:
-                      type: integer
-                      description: Size of the ZIP file in bytes
-                      example: 2048
-                  required:
-                    - filename
-                    - data
-                    - size
-                examples:
-                  successful_download:
-                    summary: Successful ZIP file generation
-                    value:
-                      filename: "ABC123.zip"
-                      data: "UEsDBBQAAAAIAG5kJVnzNwAA8TEAAABAAAAA..."
-                      size: 2048
-          '400':
-            description: Bad Request
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
-          '404':
-            description: Pool or configs not found
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
-                examples:
-                  no_configs:
-                    summary: No WireGuard configs found
-                    value:
-                      error: "No configs found"
-                  pool_not_found:
-                    summary: Pool not found
-                    value:
-                      error: "Not Found"
-          '500':
-            description: Internal Server Error
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
-                examples:
-                  zip_creation_failed:
-                    summary: ZIP file creation failed
-                    value:
-                      error: "Failed to create ZIP file"
-
-  /range/share:
-    post:
-      summary: Share range access for pool users
-      description: Grant range access from all users in a pool to a target user
+    get:
+      summary: Get WireGuard access configs for pool users
+      description: Download WireGuard configuration files for all users in a pool as a base64-encoded ZIP file
       tags:
         - Ludus Range Sharing
       parameters:
@@ -1291,13 +1286,86 @@ paths:
             pattern: "^[a-zA-Z0-9]{6}$"
           description: Pool ID to get users from
           example: "ABC123"
-        - name: targetId
+      responses:
+        '200':
+          description: Base64-encoded ZIP file containing WireGuard configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                    description: Suggested filename for the ZIP file
+                    example: "ABC123.zip"
+                  data:
+                    type: string
+                    format: byte
+                    description: Base64-encoded ZIP file containing WireGuard configs in wireguard-configs/ folder
+                    example: "UEsDBBQAAAAIAG5kJVnzNwAA8T..."
+                  size:
+                    type: integer
+                    description: Size of the ZIP file in bytes
+                    example: 2048
+                required:
+                  - filename
+                  - data
+                  - size
+              examples:
+                successful_download:
+                  summary: Successful ZIP file generation
+                  value:
+                    filename: "ABC123.zip"
+                    data: "UEsDBBQAAAAIAG5kJVnzNwAA8TEAAABAAAAA..."
+                    size: 2048
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool or configs not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                no_configs:
+                  summary: No WireGuard configs found
+                  value:
+                    error: "No configs found"
+                pool_not_found:
+                  summary: Pool not found
+                  value:
+                    error: "Not Found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                zip_creation_failed:
+                  summary: ZIP file creation failed
+                  value:
+                    error: "Failed to create ZIP file"
+
+  /range/share:
+    post:
+      summary: Share range access for SHARED pool users
+      description: Grant range access from all users in a SHARED pool to their respective main users
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
           in: query
           required: true
           schema:
             type: string
-          description: Target user ID to grant access to
-          example: "instructor1"
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID (must be of type SHARED)
+          example: "ABC123"
       responses:
         '200':
           description: Share results
@@ -1319,7 +1387,7 @@ paths:
                         error:
                           type: string
         '400':
-          description: Bad Request
+          description: Bad Request - Invalid pool ID or pool is not of type SHARED
           content:
             application/json:
               schema:
@@ -1333,8 +1401,8 @@ paths:
 
   /range/unshare:
     post:
-      summary: Unshare range access for pool users
-      description: Revoke range access from all users in a pool to a target user
+      summary: Unshare range access for SHARED pool users
+      description: Revoke range access from all users in a SHARED pool to their respective main users
       tags:
         - Ludus Range Sharing
       parameters:
@@ -1344,15 +1412,8 @@ paths:
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
+          description: Pool ID (must be of type SHARED)
           example: "ABC123"
-        - name: targetId
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Target user ID to revoke access from
-          example: "instructor1"
       responses:
         '200':
           description: Unshare results
@@ -1374,7 +1435,7 @@ paths:
                         error:
                           type: string
         '400':
-          description: Bad Request
+          description: Bad Request - Invalid pool ID or pool is not of type SHARED
           content:
             application/json:
               schema:
@@ -1388,21 +1449,20 @@ paths:
 
   /range/shared:
     get:
-      summary: Check range sharing status for target user
+      summary: Check range sharing status for SHARED pool
       description: |
-        Check the range sharing status between pool users and a target user.
+        Check the range sharing status for a SHARED pool to determine if all users are properly shared to their main users.
         
         The function:
-        1. Gets all users from the specified pool
+        1. Gets all users from the specified SHARED pool
         2. Queries the Ludus API for current range access permissions
-        3. Determines if the targetId exists in any sharing relationships
-        4. If found, checks if all pool users are sharing with the target
-        5. Returns both shared and unshared status
+        3. Checks if each user in the pool is sharing their range with their assigned main user
+        4. Returns overall sharing status for the pool
         
         Response combinations:
-        - `{"shared": false, "unshared": true}` - Target has no shared ranges at all
-        - `{"shared": false, "unshared": false}` - Target has some shared ranges, but not from all pool users
-        - `{"shared": true, "unshared": false}` - Target has shared ranges from all pool users
+        - `{"shared": true, "unshared": false}` - ALL pool users have shared their ranges with their respective main users
+        - `{"shared": false, "unshared": false}` - SOME pool users have shared their ranges, but not all
+        - `{"shared": false, "unshared": true}` - NO pool users have shared their ranges with any main users
       tags:
         - Ludus Range Sharing
       parameters:
@@ -1412,18 +1472,11 @@ paths:
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID to get users from
+          description: Pool ID (must be of type SHARED)
           example: "ABC123"
-        - name: targetId
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Target user ID to check shared access for
-          example: "instructor1"
       responses:
         '200':
-          description: Range sharing status result
+          description: Range sharing status result for the SHARED pool
           content:
             application/json:
               schema:
@@ -1431,33 +1484,33 @@ paths:
                 properties:
                   shared:
                     type: boolean
-                    description: True if ALL pool users have shared their ranges with the target user
+                    description: True if ALL pool users have shared their ranges with their respective main users
                     example: true
                   unshared:
                     type: boolean
-                    description: True if the target user has NO shared ranges at all (does not appear in any sharing relationships)
+                    description: True if NO pool users have shared their ranges with any main users
                     example: false
                 required:
                   - shared
                   - unshared
               examples:
                 no_sharing:
-                  summary: Target has no shared ranges
+                  summary: No users in pool have shared their ranges
                   value:
                     shared: false
                     unshared: true
                 partial_sharing:
-                  summary: Target has some shared ranges, but not from all pool users
+                  summary: Some users in pool have shared, but not all
                   value:
                     shared: false
                     unshared: false
                 complete_sharing:
-                  summary: Target has shared ranges from all pool users
+                  summary: All users in pool have shared their ranges with their main users
                   value:
                     shared: true
                     unshared: false
         '400':
-          description: Bad Request - Invalid pool ID or missing parameters
+          description: Bad Request - Invalid pool ID or pool is not of type SHARED
           content:
             application/json:
               schema:

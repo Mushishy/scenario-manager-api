@@ -1,24 +1,11 @@
 package utils
 
 import (
+	"crypto/tls"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 )
-
-// HandleFileReadError handles common file reading errors with HTTP responses
-func HandleFileReadError(c *gin.Context, err error) bool {
-	if err == os.ErrNotExist {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return true
-	}
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		return true
-	}
-	return false
-}
 
 // GetRequiredQueryParam gets a required query parameter and handles error response
 func GetRequiredQueryParam(c *gin.Context, paramName string) (string, bool) {
@@ -33,4 +20,25 @@ func GetRequiredQueryParam(c *gin.Context, paramName string) (string, bool) {
 // GetOptionalQueryParam gets an optional query parameter
 func GetOptionalQueryParam(c *gin.Context, paramName string) string {
 	return c.Query(paramName)
+}
+
+// createHTTPClient creates HTTP client with TLS verification disabled
+func createHTTPClient() *http.Client {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	return &http.Client{Transport: tr}
+}
+
+// ConvertResponsesToResults converts LudusResponse slice to gin.H results format
+func ConvertResponsesToResults(responses []LudusResponse) []gin.H {
+	var results []gin.H
+	for _, resp := range responses {
+		if resp.Error != nil {
+			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
+		} else {
+			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
+		}
+	}
+	return results
 }

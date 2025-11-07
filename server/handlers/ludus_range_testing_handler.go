@@ -14,29 +14,29 @@ func PutTestingStart(c *gin.Context) {
 		return
 	}
 
-	var userIds []string
-	mainUser, _ := utils.GetMainUserFromPool(poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
 
-	if mainUser != "" {
-		userIds = []string{mainUser}
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
 	} else {
-		var err error
-		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-		if err != nil {
-			if err.Error() == "pool not found" {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-			} else {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			}
-			return
-		}
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(userIds))
-	for i, userID := range userIds {
+	requests := make([]utils.LudusRequest, len(users))
+	for i, userID := range users {
 		requests[i] = utils.LudusRequest{
 			Method:  "PUT",
 			URL:     config.LudusUrl + "/testing/start/?userID=" + userID,
@@ -45,18 +45,9 @@ func PutTestingStart(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -67,30 +58,30 @@ func PutTestingStop(c *gin.Context) {
 		return
 	}
 
-	var userIds []string
-	mainUser, _ := utils.GetMainUserFromPool(poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
 
-	if mainUser != "" {
-		userIds = []string{mainUser}
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
 	} else {
-		var err error
-		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-		if err != nil {
-			if err.Error() == "pool not found" {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-			} else {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			}
-			return
-		}
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 	payload := gin.H{"force": true}
 
-	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(userIds))
-	for i, userID := range userIds {
+	requests := make([]utils.LudusRequest, len(users))
+	for i, userID := range users {
 		requests[i] = utils.LudusRequest{
 			Method:  "PUT",
 			URL:     config.LudusUrl + "/testing/stop/?userID=" + userID,
@@ -99,18 +90,9 @@ func PutTestingStop(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
-	// Convert to results format
-	var results []gin.H
-	for _, resp := range responses {
-		if resp.Error != nil {
-			results = append(results, gin.H{"userId": resp.UserID, "error": resp.Error.Error()})
-		} else {
-			results = append(results, gin.H{"userId": resp.UserID, "response": resp.Response})
-		}
-	}
+	results := utils.ConvertResponsesToResults(responses)
 
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
@@ -121,29 +103,29 @@ func GetTestingStatus(c *gin.Context) {
 		return
 	}
 
-	var userIds []string
-	mainUser, _ := utils.GetMainUserFromPool(poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
 
-	if mainUser != "" {
-		userIds = []string{mainUser}
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
 	} else {
-		var err error
-		userIds, err = utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-		if err != nil {
-			if err.Error() == "pool not found" {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-			} else {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			}
-			return
-		}
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
 	}
 
 	apiKey := c.Request.Header.Get("X-API-Key")
 
-	// Prepare concurrent requests
-	requests := make([]utils.LudusRequest, len(userIds))
-	for i, userID := range userIds {
+	requests := make([]utils.LudusRequest, len(users))
+	for i, userID := range users {
 		requests[i] = utils.LudusRequest{
 			Method:  "GET",
 			URL:     config.LudusUrl + "/range?userID=" + userID,
@@ -152,7 +134,6 @@ func GetTestingStatus(c *gin.Context) {
 		}
 	}
 
-	// Execute concurrent requests
 	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
 
 	// Check testing enabled status

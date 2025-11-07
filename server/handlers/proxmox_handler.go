@@ -10,22 +10,11 @@ import (
 
 // GetProxmoxStatistics is the Gin handler for Proxmox statistics endpoint
 func GetProxmoxStatistics(c *gin.Context) {
-	proxmoxURL := config.ProxmoxURL
-	username := config.ProxmoxUsername
-	password := config.ProxmoxPassword
-
-	if proxmoxURL == "" || username == "" || password == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Internal Server Error",
-		})
-		return
-	}
-
 	// Create Proxmox client
-	client := utils.NewProxmoxClient(proxmoxURL)
+	client := utils.NewProxmoxClient(config.ProxmoxURL)
 
-	// Authenticate
-	auth, err := client.Authenticate(username, password)
+	// AuthenticateProxmox
+	auth, err := client.AuthenticateProxmox(config.ProxmoxUsername, config.ProxmoxPassword)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Bad Request",

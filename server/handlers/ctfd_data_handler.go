@@ -5,69 +5,51 @@ import (
 	"dulus/server/utils"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
+// if one user has flags all users must have flags !
+
+// GetCtfdLogins for a pool and return as CSV of login credentials to ctfd
 func GetCtfdLogins(c *gin.Context) {
 	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
 	if !ok {
 		return
 	}
 
-	dataPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
 
-	// Read the ctfd_data.json file
-	data, err := utils.ReadCTFdJSON(dataPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		}
-		return
-	}
-
-	// Extract ctfd_data array
-	ctfdData, ok := data["ctfd_data"].([]interface{})
+	ctfdData, ok := utils.ReadCTFdJSON(c, poolPath)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 		return
 	}
 
-	// Build CSV string
-	var csvLines []string
-	for _, item := range ctfdData {
-		user, ok := item.(map[string]interface{})
-		if !ok {
-			continue
+	var csvOutput strings.Builder
+	for i, user := range ctfdData.CtfdData {
+		if i > 0 {
+			csvOutput.WriteString("\n")
 		}
 
-		username, _ := user["user"].(string)
-		password, _ := user["password"].(string)
-		team, teamExists := user["team"].(string)
+		username := user.User
+		password := user.Password
+		team := user.Team
 
-		// Create CSV line: "username, password[, team]"
-		var csvLine string
-		if teamExists && team != "" {
-			csvLine = fmt.Sprintf("%s, %s, %s", username, password, team)
+		// Create CSV line "username, password, team"
+		if team != "" {
+			csvOutput.WriteString(fmt.Sprintf("%s, %s, %s", username, password, team))
 		} else {
-			csvLine = fmt.Sprintf("%s, %s", username, password)
+			csvOutput.WriteString(fmt.Sprintf("%s, %s", username, password))
 		}
-		csvLines = append(csvLines, csvLine)
 	}
-
-	// Join all lines with newlines
-	csvOutput := strings.Join(csvLines, "\n")
 
 	// Return as plain text
 	c.Header("Content-Type", "text/plain")
-	c.String(http.StatusOK, csvOutput)
+	c.String(http.StatusOK, csvOutput.String())
 }
 
 func GetCtfdData(c *gin.Context) {
@@ -76,81 +58,88 @@ func GetCtfdData(c *gin.Context) {
 		return
 	}
 
-	// Validate the folder id
-	dataPath, err := utils.ValidateFolderID(config.PoolFolder, poolId)
-	switch err {
-	case os.ErrInvalid:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	case os.ErrNotExist:
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
 		return
 	}
 
-	// Read the ctfd_data.json file
-	data, err := utils.ReadCTFdJSON(dataPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-		}
+	ctfdData, ok := utils.ReadCTFdJSON(c, poolPath)
+	if !ok {
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"ctfdData": data["ctfd_data"],
+		"ctfdData": ctfdData.CtfdData,
 	})
 }
 
+// Retrieve flags from deployed pools into ctfd_data.json
 func PutCtfdData(c *gin.Context) {
+	apiKey := c.Request.Header.Get("X-API-Key")
 	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
 	if !ok {
 		return
 	}
 
-	poolPath, ok := utils.ValidateFolderWithResponse(c, config.PoolFolder, poolId)
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
 	if !ok {
 		return
 	}
 
-	userIds, err := utils.GetUserIdsFromPool(poolId, utils.SharedMainUserOnly)
-	if err != nil {
-		if err.Error() == "pool not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
+	} else {
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
+	}
+
+	if !utils.AllRangesDeployed(users, apiKey, c) {
+		return
+	}
+
+	flagsMap, ok := utils.GetFlagsForUsers(c, users, apiKey)
+	if !ok {
+		return
+	}
+
+	var ctfdUsers []utils.CtfdUser
+	for _, userTeam := range pool.UsersAndTeams {
+		var lookupKey string
+		if pool.Type == "SHARED" {
+			lookupKey = userTeam.MainUserId
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+			lookupKey = userTeam.UserId
 		}
-		return
+
+		flags, exists := flagsMap[lookupKey]
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "No flags found for user: " + lookupKey})
+			return
+		}
+
+		ctfdUser := utils.CtfdUser{
+			User:     userTeam.User,
+			Password: utils.RandomString(6),
+			Team:     userTeam.Team,
+			Flags:    flags,
+		}
+		ctfdUsers = append(ctfdUsers, ctfdUser)
 	}
 
-	apiKey := c.Request.Header.Get("X-API-Key")
-
-	// Check if all ranges are deployed
-	if !utils.AllRangesDeployed(userIds, apiKey, c) {
-		return
-	}
-
-	// Read pool.json to get user details
-	ctfdUsers, err := utils.GetUserDetailsAndExtractFlags(poolPath, apiKey)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Prepare the data structure for saving
-	ctfdData := utils.CtfdData{CtfdData: ctfdUsers}
-	dataToSave := map[string]interface{}{"ctfd_data": ctfdUsers}
-
-	// Save the new data to file
-	if err := utils.SaveCTFdData(poolPath, dataToSave); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+	if !utils.SaveCTFdData(c, poolPath, ctfdUsers) {
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":   "Flags extracted and saved successfully",
 		"poolId":    poolId,
-		"ctfd_data": ctfdData.CtfdData,
+		"ctfd_data": ctfdUsers,
 	})
 }

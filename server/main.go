@@ -38,7 +38,6 @@ func main() {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 
-	// Register routes
 	RegisterRoutes(r)
 
 	// Ensure base directories exist

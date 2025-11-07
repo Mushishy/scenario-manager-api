@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -29,7 +28,7 @@ var (
 func init() {
 	err := godotenv.Load("../.env")
 	if err != nil {
-		fmt.Println("Env file is not used")
+		log.Fatalf("Env file is not used")
 	}
 	loadVariables()
 }

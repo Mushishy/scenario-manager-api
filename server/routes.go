@@ -22,7 +22,6 @@ func validateAPIKey(c *gin.Context) {
 		return
 	}
 
-	// Check that we can pull the userID and apikey from what the user provided
 	userID, ok := utils.ExtractUserIDFromAPIKey(c, APIKey)
 	if !ok {
 		return
@@ -39,7 +38,7 @@ func validateAPIKey(c *gin.Context) {
 		return
 	}
 
-	if utils.CheckHash(APIKey, hashedAPIKey) {
+	if utils.CheckPasswordHash(APIKey, hashedAPIKey) {
 		if isAdmin {
 			c.Set("isAdmin", true)
 		} else {
