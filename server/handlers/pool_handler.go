@@ -4,6 +4,7 @@ import (
 	"dulus/server/config"
 	"dulus/server/utils"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -174,38 +175,14 @@ func PatchPoolUsers(c *gin.Context) {
 	var existingUsersAndTeams []interface{}
 	json.Unmarshal(existingBytes, &existingUsersAndTeams)
 
-	// For SHARED pools, validate that new users' mainUserIds match existing ones
-	poolType := pool.Type
-	if poolType == "SHARED" && len(existingUsersAndTeams) > 0 {
-		// Create hashmap of existing mainUserIds
-		existingMainUserIds := make(map[string]bool)
-		for _, item := range existingUsersAndTeams {
-			if userMap, ok := item.(map[string]interface{}); ok {
-				if mainUserId, exists := userMap["mainUserId"].(string); exists && mainUserId != "" {
-					existingMainUserIds[mainUserId] = true
-				}
-			}
-		}
-
-		// Check that all new users' mainUserIds are in existing mainUserIds
-		for _, item := range newUsersAndTeams {
-			if userMap, ok := item.(map[string]interface{}); ok {
-				if mainUserId, exists := userMap["mainUserId"].(string); exists && mainUserId != "" {
-					if !existingMainUserIds[mainUserId] {
-						c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-						return
-					}
-				}
-			}
-		}
-	}
-
 	// Combine existing and new users
 	combinedUsers := append(existingUsersAndTeams, newUsersAndTeams...)
 
 	// Validate and process the combined user list
+	poolType := pool.Type
 	processedUsers, err := utils.ValidateAndProcessUsersAndTeams(combinedUsers, poolType, utils.OperationAdd)
 	if err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}

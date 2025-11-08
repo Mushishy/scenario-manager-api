@@ -97,6 +97,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/users/import", validateAPIKey, handlers.ImportUsers)
 	r.POST("/users/delete", validateAPIKey, handlers.DeleteUsers)
 	r.GET("/users/check", validateAPIKey, handlers.CheckUsers)
+	r.GET("/users/main", validateAPIKey, handlers.GetAllMainUsers)
 
 	// Range config
 	r.POST("/range/config", validateAPIKey, handlers.SetRangeConfig)
@@ -114,6 +115,9 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/range/share", validateAPIKey, handlers.ShareRange)
 	r.POST("/range/unshare", validateAPIKey, handlers.UnshareRange)
 	r.GET("/range/shared", validateAPIKey, handlers.GetSharedRanges)
+	r.POST("/range/share/user", validateAPIKey, handlers.ShareRangeToUserId)
+	r.POST("/range/unshare/user", validateAPIKey, handlers.UnshareRangeToUserId)
+	r.GET("/range/shared/user", validateAPIKey, handlers.CheckRangeSharedToUserId)
 
 	// Range testing
 	r.PUT("/range/testing/start", validateAPIKey, handlers.PutTestingStart)

@@ -25,10 +25,44 @@ const (
 	OperationAdd
 )
 
+// replaceSpecialChars replaces special characters with their ASCII equivalents
+func replaceSpecialChars(s string) string {
+	replacements := map[rune]rune{
+		'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a', 'å': 'a', 'ā': 'a', 'ą': 'a',
+		'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ę': 'e', 'ě': 'e',
+		'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i', 'į': 'i',
+		'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o', 'ø': 'o', 'ō': 'o', 'ő': 'o',
+		'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u', 'ů': 'u', 'ű': 'u', 'ų': 'u',
+		'ý': 'y', 'ÿ': 'y', 'ỳ': 'y',
+		'ñ': 'n', 'ň': 'n', 'ń': 'n',
+		'ç': 'c', 'č': 'c', 'ć': 'c',
+		'š': 's', 'ś': 's', 'ş': 's',
+		'ž': 'z', 'ź': 'z', 'ż': 'z',
+		'đ': 'd', 'ď': 'd',
+		'ť': 't', 'ţ': 't',
+		'ř': 'r', 'ŕ': 'r',
+		'ľ': 'l', 'ł': 'l',
+		'ğ': 'g',
+		'ß': 's',
+	}
+
+	var result strings.Builder
+	for _, char := range s {
+		if replacement, exists := replacements[char]; exists {
+			result.WriteRune(replacement)
+		} else if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == ' ' {
+			result.WriteRune(char)
+		}
+		// Skip any other special characters
+	}
+	return result.String()
+}
+
 // generateUserId generates userId from user name
 func generateUserId(user string) string {
-	// Remove spaces, convert to lowercase, and add BATCH prefix
+	// Remove spaces, convert to lowercase, replace special characters
 	userId := strings.ToLower(strings.ReplaceAll(user, " ", ""))
+	userId = replaceSpecialChars(userId)
 	return "BATCH" + userId
 }
 
@@ -46,7 +80,12 @@ func ProcessUsersAndTeams(usersAndTeams []interface{}) []interface{} {
 
 			// Add userId based on user field
 			if user, exists := itemMap["user"].(string); exists {
-				newItem["userId"] = generateUserId(user)
+				// Normalize user field: lowercase and replace special characters, keep spaces
+				normalizedUser := strings.ToLower(user)
+				cleanUser := replaceSpecialChars(normalizedUser)
+				// Update the user field with cleaned version
+				newItem["user"] = cleanUser
+				newItem["userId"] = generateUserId(cleanUser)
 			}
 
 			processed = append(processed, newItem)
@@ -87,6 +126,10 @@ func ValidateAndProcessUsersAndTeams(usersAndTeams []interface{}, poolType strin
 		if userId, exists := data["userId"].(string); exists && userId != "" {
 			if userIdSet[userId] {
 				return nil, fmt.Errorf("duplicate userId found: %s", userId)
+			}
+			// Validate userId length (must be less than 20 characters)
+			if len(userId) >= 20 {
+				return nil, fmt.Errorf("userId '%s' must be less than 20 characters (current: %d)", userId, len(userId))
 			}
 			userIdSet[userId] = true
 			allUserIds = append(allUserIds, userId)
@@ -321,12 +364,17 @@ func GetAllUserIdsFromPools(poolFolder string) (map[string]bool, error) {
 		}
 		file.Close()
 
-		// Extract userIds from usersAndTeams
+		// Extract userIds and mainUserIds from usersAndTeams
 		if usersAndTeams, exists := poolData["usersAndTeams"].([]interface{}); exists {
 			for _, item := range usersAndTeams {
 				if userMap, ok := item.(map[string]interface{}); ok {
-					if userId, exists := userMap["userId"].(string); exists {
+					// Add userId if it exists
+					if userId, exists := userMap["userId"].(string); exists && userId != "" {
 						userIds[userId] = true
+					}
+					// Add mainUserId if it exists (distinct values)
+					if mainUserId, exists := userMap["mainUserId"].(string); exists && mainUserId != "" {
+						userIds[mainUserId] = true
 					}
 				}
 			}

@@ -1168,6 +1168,120 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /users/main:
+    get:
+      summary: Get all users from Ludus API with main user filtering
+      description: |
+        Retrieves all users from the Ludus API and filters out main users assigned to pools.
+        
+        By default, returns all user IDs from Ludus minus the main user IDs currently assigned to pools and ROOT user (allUserIds - mainUserIds - ROOT).
+        This is useful for getting available users that can be assigned to new pools.
+        
+        With the 'current' parameter, returns only the main user IDs currently assigned to pools.
+        
+        With the 'poolId' parameter (without 'current'), includes main users from the specified pool in the filtered results.
+      tags:
+        - Ludus User Management
+      parameters:
+        - name: current
+          in: query
+          required: false
+          schema:
+            type: string
+          description: If provided (any value), returns only main users currently assigned to pools instead of filtered users
+          example: "true"
+        - name: poolId
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: |
+            If provided (without 'current' parameter), includes main users from the specified pool in the filtered results.
+            This allows getting available users plus the main users from a specific pool.
+          example: "8vrVI4"
+      responses:
+        '200':
+          description: Successfully retrieved and filtered user IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userIds:
+                    type: array
+                    items:
+                      type: string
+                    description: |
+                      Array of user IDs based on parameters:
+                      - No parameters: All Ludus users minus main users assigned to pools minus ROOT
+                      - With 'current': Only main users currently assigned to pools
+                      - With 'poolId': Available users plus main users from the specified pool
+                    example: ["JD", "user1", "user2"]
+                required:
+                  - userIds
+              examples:
+                filtered_users:
+                  summary: Available users (excluding main users and ROOT)
+                  description: Default behavior - returns users not assigned as main users, excluding ROOT
+                  value:
+                    userIds: ["JD", "student1", "student2", "available_user"]
+                current_main_users:
+                  summary: Current main users only
+                  description: With 'current' parameter - returns only assigned main users
+                  value:
+                    userIds: ["instructor1", "admin1"]
+                pool_specific_users:
+                  summary: Available users plus specific pool main users
+                  description: With 'poolId' parameter - returns available users plus main users from specified pool
+                  value:
+                    userIds: ["JD", "student1", "student2", "available_user", "pool_instructor1"]
+                no_users:
+                  summary: No users found
+                  value:
+                    userIds: []
+          '400':
+            description: Bad Request - Invalid pool ID
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  invalid_pool:
+                    summary: Invalid or non-existent pool ID
+                    value:
+                      error: "Pool not found"
+          '404':
+            description: Pool Not Found
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  pool_not_found:
+                    summary: Specified pool does not exist
+                    value:
+                      error: "Pool not found"
+          '500':
+            description: Internal Server Error - Failed to retrieve users from Ludus API or pools
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  ludus_error:
+                    summary: Failed to retrieve from Ludus
+                    value:
+                      error: "Failed to retrieve users from Ludus"
+                  main_users_error:
+                    summary: Failed to retrieve main users
+                    value:
+                      error: "Failed to retrieve main users"
+                  format_error:
+                    summary: Invalid response format
+                    value:
+                      error: "Invalid response format from Ludus"
+
   # Ludus Range Config
   /range/config:
     post:
@@ -1527,6 +1641,275 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /range/share/user:
+    post:
+      summary: Share ranges from a user to pool users
+      description: |
+        Shares ranges from a specified source user to users in a pool.
+        
+        The behavior differs based on pool type:
+        - For SHARED pools: Shares from targetUserId to all main users in the pool
+        - For INDIVIDUAL pools: Shares from targetUserId to all regular users in the pool
+        
+        This allows an instructor or admin to grant their range access to pool users.
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID containing the target users
+          example: "ABC123"
+        - name: targetUserId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Source user ID who will share their ranges to pool users
+          example: "instructor1"
+      responses:
+        '200':
+          description: Share operation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "instructor1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+                required:
+                  - results
+        '400':
+          description: Bad Request - Invalid pool ID or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/unshare/user:
+    post:
+      summary: Revoke range sharing from a user to pool users
+      description: |
+        Revokes range sharing from a specified source user to users in a pool.
+        
+        The behavior differs based on pool type:
+        - For SHARED pools: Revokes sharing from targetUserId to all main users in the pool
+        - For INDIVIDUAL pools: Revokes sharing from targetUserId to all regular users in the pool
+        
+        This allows revoking previously granted range access.
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID containing the target users
+          example: "ABC123"
+        - name: targetUserId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Source user ID whose range sharing will be revoked from pool users
+          example: "instructor1"
+      responses:
+        '200':
+          description: Unshare operation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          example: "instructor1"
+                        response:
+                          type: object
+                        error:
+                          type: string
+                required:
+                  - results
+        '400':
+          description: Bad Request - Invalid pool ID or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /range/shared/user:
+    get:
+      summary: Check comprehensive range sharing status from a user to pool users
+      description: |
+        Checks the detailed range sharing status from a specified source user to users in a pool.
+        
+        This endpoint provides comprehensive sharing status information by checking:
+        1. Whether all pool users exist in the Ludus range access list
+        2. Whether the specified targetUserId has shared ranges to each pool user
+        3. Overall sharing status indicators
+        
+        The behavior differs based on pool type:
+        - For SHARED pools: Checks sharing from targetUserId to all main users in the pool
+        - For INDIVIDUAL pools: Checks sharing from targetUserId to all regular users in the pool
+        
+        Returns both granular and summary sharing status information.
+      tags:
+        - Ludus Range Sharing
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9]{6}$"
+          description: Pool ID containing the target users to check sharing status for
+          example: "ABC123"
+        - name: targetUserId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Source user ID to check sharing status from (the user who may have shared their ranges)
+          example: "EXAMINER1"
+      responses:
+        '200':
+          description: Range sharing status information with comprehensive analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shared:
+                    type: boolean
+                    description: |
+                      True if ALL conditions are met:
+                      - All pool users exist in the Ludus range access list
+                      - The targetUserId has shared ranges to ALL pool users
+                    example: true
+                  unshared:
+                    type: boolean
+                    description: |
+                      True if the targetUserId has NOT shared ranges to ANY pool users.
+                      This is the inverse of anyShared (unshared = !anyShared).
+                    example: false
+                required:
+                  - shared
+                  - unshared
+              examples:
+                fully_shared:
+                  summary: All users have access
+                  description: targetUserId has shared to all pool users and all users exist in range access list
+                  value:
+                    shared: true
+                    unshared: false
+                partially_shared:
+                  summary: Some users have access
+                  description: targetUserId has shared to some but not all pool users
+                  value:
+                    shared: false
+                    unshared: false
+                not_shared:
+                  summary: No users have access
+                  description: targetUserId has not shared to any pool users
+                  value:
+                    shared: false
+                    unshared: true
+                missing_users:
+                  summary: Pool users missing from range access list
+                  description: Some pool users don't exist in the Ludus range access list
+                  value:
+                    shared: false
+                    unshared: false
+        '400':
+          description: Bad Request - Invalid pool ID or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_pool_id:
+                  summary: Missing poolId parameter
+                  value:
+                    error: "poolId is required"
+                missing_target_user:
+                  summary: Missing targetUserId parameter  
+                  value:
+                    error: "targetUserId is required"
+                invalid_pool:
+                  summary: Invalid pool ID format
+                  value:
+                    error: "Pool not found"
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                pool_not_found:
+                  summary: Specified pool does not exist
+                  value:
+                    error: "Pool not found"
+        '500':
+          description: Internal Server Error - Failed to retrieve range access data from Ludus API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                api_error:
+                  summary: Failed to retrieve from Ludus API
+                  value:
+                    error: "Internal Server Error"
+                format_error:
+                  summary: Invalid response format from Ludus API
+                  value:
+                    error: "Invalid response format"
 
   # Ludus Range Deployment
   /range/deploy:

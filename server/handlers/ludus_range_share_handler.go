@@ -85,7 +85,7 @@ func GetRangeAccess(c *gin.Context) {
 	zipWriter := zip.NewWriter(&zipBuffer)
 
 	// Create folder structure and add files
-	folderName := "ludus-wireguard-configs-pool-" + string(poolId)
+	folderName := "wireguard-configs-pool-" + string(poolId) + "/"
 
 	for _, config := range validConfigs {
 		fileName := folderName + config.userID + ".conf"
@@ -296,6 +296,231 @@ func GetSharedRanges(c *gin.Context) {
 		if !isShared {
 			allShared = false
 		}
+	}
+
+	if !anyShared {
+		allShared = false
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"shared":   allShared,
+		"unshared": !anyShared,
+	})
+}
+
+func ShareRangeToUserId(c *gin.Context) {
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
+	}
+
+	targetUserId, ok := utils.GetRequiredQueryParam(c, "targetUserId")
+	if !ok {
+		return
+	}
+
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
+
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	apiKey := c.Request.Header.Get("X-API-Key")
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
+	} else {
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
+	}
+
+	var requests []utils.LudusRequest
+	for _, user := range users {
+		payload := gin.H{
+			"action":       "grant",
+			"targetUserID": user,
+			"sourceUserID": targetUserId,
+			"force":        true,
+		}
+		requests = append(requests, utils.LudusRequest{
+			Method:  "POST",
+			URL:     config.LudusUrl + "/range/access",
+			Payload: payload,
+			UserID:  targetUserId,
+		})
+	}
+
+	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+
+	results := utils.ConvertResponsesToResults(responses)
+
+	c.JSON(http.StatusOK, gin.H{"results": results})
+}
+
+func UnshareRangeToUserId(c *gin.Context) {
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
+	}
+
+	targetUserId, ok := utils.GetRequiredQueryParam(c, "targetUserId")
+	if !ok {
+		return
+	}
+
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
+
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	apiKey := c.Request.Header.Get("X-API-Key")
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
+	} else {
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
+	}
+
+	var requests []utils.LudusRequest
+	for _, user := range users {
+		payload := gin.H{
+			"action":       "revoke",
+			"targetUserID": user,
+			"sourceUserID": targetUserId,
+			"force":        true,
+		}
+		requests = append(requests, utils.LudusRequest{
+			Method:  "POST",
+			URL:     config.LudusUrl + "/range/access",
+			Payload: payload,
+			UserID:  targetUserId,
+		})
+	}
+
+	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+
+	results := utils.ConvertResponsesToResults(responses)
+
+	c.JSON(http.StatusOK, gin.H{"results": results})
+}
+
+func CheckRangeSharedToUserId(c *gin.Context) {
+	poolId, ok := utils.GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
+	}
+
+	targetUserId, ok := utils.GetRequiredQueryParam(c, "targetUserId")
+	if !ok {
+		return
+	}
+
+	poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
+
+	pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	apiKey := c.Request.Header.Get("X-API-Key")
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
+	} else {
+		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
+	}
+
+	response, err := utils.MakeLudusRequest("GET", config.LudusUrl+"/range/access", nil, apiKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	// Parse response as generic interface
+	rangeAccessList, ok := response.([]interface{})
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid response format"})
+		return
+	}
+
+	// Initialize flags
+	anyShared := false
+	allShared := true
+
+	// Create a set of pool users for quick lookup
+	userSet := make(map[string]bool)
+	for _, user := range users {
+		userSet[user] = true
+	}
+
+	// Track which pool users we've found in rangeAccessList
+	foundUsers := make(map[string]bool)
+
+	// Iterate over rangeAccessList
+	for _, item := range rangeAccessList {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			if targetUserIDInterface, exists := itemMap["targetUserID"]; exists {
+				if targetUserID, ok := targetUserIDInterface.(string); ok {
+					// Check if this targetUserID is in our pool users
+					if userSet[targetUserID] {
+						foundUsers[targetUserID] = true
+						// Check if request.targetUserId is in sourceUserIDs
+						if sourceUserIDsInterface, exists := itemMap["sourceUserIDs"]; exists {
+							if sourceUserIDs, ok := sourceUserIDsInterface.([]interface{}); ok {
+								isShared := false
+								for _, sourceUserIDInterface := range sourceUserIDs {
+									if sourceUserID, ok := sourceUserIDInterface.(string); ok {
+										if sourceUserID == targetUserId {
+											isShared = true
+											anyShared = true
+											break
+										}
+									}
+								}
+								if !isShared {
+									allShared = false
+								}
+							}
+						} else {
+							// No sourceUserIDs found, so not shared
+							allShared = false
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Check if all pool users were found in rangeAccessList
+	for _, user := range users {
+		if !foundUsers[user] {
+			allShared = false
+			break
+		}
+	}
+
+	if !anyShared {
+		allShared = false
 	}
 
 	c.JSON(http.StatusOK, gin.H{

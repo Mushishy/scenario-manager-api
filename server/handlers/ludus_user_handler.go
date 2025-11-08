@@ -145,3 +145,93 @@ func CheckUsers(c *gin.Context) {
 		"allExist":       allExist,
 	})
 }
+
+func GetAllMainUsers(c *gin.Context) {
+	current := utils.GetOptionalQueryParam(c, "current")
+	apiKey := c.Request.Header.Get("X-API-Key")
+
+	// Get all users from Ludus API
+	response, err := utils.MakeLudusRequest("GET", config.LudusUrl+"/user/all", nil, apiKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users from Ludus"})
+		return
+	}
+
+	// Parse response to extract userIDs
+	var allUserIds []string
+	if userArray, ok := response.([]interface{}); ok {
+		for _, user := range userArray {
+			if userMap, ok := user.(map[string]interface{}); ok {
+				if userID, exists := userMap["userID"].(string); exists {
+					allUserIds = append(allUserIds, userID)
+				}
+			}
+		}
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid response format from Ludus"})
+		return
+	}
+
+	// Get main users from pools
+	existingMainUsers, err := utils.GetAllMainUsersFromPools()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve main users"})
+		return
+	}
+
+	// Convert main users map to array
+	var mainUserIds []string
+	for userId := range existingMainUsers {
+		mainUserIds = append(mainUserIds, userId)
+	}
+
+	// If current parameter is set, return just the main users
+	if current != "" {
+		c.JSON(http.StatusOK, gin.H{"userIds": mainUserIds})
+		return
+	}
+
+	// Filter out main users and ROOT user from all users (allUserIds - mainUserIds - ROOT)
+	var filteredUserIds []string
+	for _, userID := range allUserIds {
+		if !existingMainUsers[userID] && userID != "ROOT" {
+			filteredUserIds = append(filteredUserIds, userID)
+		}
+	}
+
+	// Check for optional poolId parameter
+	poolId := utils.GetOptionalQueryParam(c, "poolId")
+	if poolId != "" {
+		// Validate poolId and get pool path
+		poolPath, ok := utils.ValidateFolderId(c, config.PoolFolder, poolId)
+		if !ok {
+			return
+		}
+
+		// Get pool data to extract main users for this specific pool
+		pool, ok := utils.ReadPoolWithResponse(c, poolPath)
+		if !ok {
+			return
+		}
+
+		// Extract userIds and mainUserIds from this specific pool
+		_, mainUserIds := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+
+		// Add main users from the specified pool to filtered results
+		for _, mainUserId := range mainUserIds {
+			// Avoid duplicates
+			found := false
+			for _, existing := range filteredUserIds {
+				if existing == mainUserId {
+					found = true
+					break
+				}
+			}
+			if !found {
+				filteredUserIds = append(filteredUserIds, mainUserId)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"userIds": filteredUserIds})
+}
