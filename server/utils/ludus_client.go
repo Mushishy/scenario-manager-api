@@ -444,3 +444,26 @@ func ExtractUserFlags(resp LudusResponse, flagPattern *regexp.Regexp) []Flag {
 	}
 	return flags
 }
+
+// GetLudusServerVersion retrieves the Ludus server version and trims the commit hash
+func GetLudusServerVersion(apiKey string) (string, error) {
+	response, err := MakeLudusRequest("GET", config.LudusUrl+"/", nil, apiKey)
+	if err != nil {
+		return "", err
+	}
+
+	// Parse response to extract version
+	if resultMap, ok := response.(map[string]interface{}); ok {
+		if result, exists := resultMap["result"]; exists {
+			if versionStr, ok := result.(string); ok {
+				// Trim the part after + (e.g., "Ludus Server v1.0.0+abc123a" -> "Ludus Server v1.0.0")
+				if plusIndex := strings.Index(versionStr, "+"); plusIndex != -1 {
+					return versionStr[:plusIndex], nil
+				}
+				return versionStr, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("invalid response format")
+}

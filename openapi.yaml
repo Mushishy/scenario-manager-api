@@ -1,8 +1,8 @@
-openapi: 3.1.3
+openapi: 3.0.3
 info:
   title: Ludus Extension API
   version: "1.0"
-  description: API for managing scenarios, data, and topology in Ludus CTFd extension.
+  description: API for managing ctfd scenarios, ctfd data, and topologies and pools
 
 servers:
   - url: http://127.0.0.1:5000
@@ -31,7 +31,7 @@ paths:
   # Ctfd Scenario
   /ctfd/scenario:
     get:
-      summary: Get scenario(s)
+      summary: Get scenario
       description: Get a scenario by ID (as base64) or list all scenarios.
       tags:
         - CTFd Scenario
@@ -234,7 +234,7 @@ paths:
   /pool:
     post:
       summary: Create a new pool
-      description: Create a new pool with topology, users, and optional teams
+      description: Create a new pool either SHARED or INDIVIDUAL with topologyId, users, mainUserId in case of SHARED, and optional team values.
       tags:
         - Pool
       requestBody:
@@ -710,7 +710,7 @@ paths:
                 $ref: '#/components/schemas/Error'
     patch:
       summary: Add users to pool
-      description: Add new users to an existing pool, combining them with existing users. Pool type determines mainUserId requirements.
+      description: Add new users to an existing pool, combining them with existing users.
       tags:
         - Pool
       parameters:
@@ -805,6 +805,7 @@ paths:
   /ctfd/data:
     get:
       summary: Get flag data
+      description: Retreive CTFD data from pool after it was extracted from deployment logs.
       tags:
         - Ctfd Flag Data
       parameters:
@@ -959,7 +960,7 @@ paths:
   /ctfd/data/logins:
     get:
       summary: Get CTFd logins
-      description: Retrieve user login information in CSV format for a specific CTFd data ID or all available data.
+      description: Retrieve user login information in CSV format for a specific CTFd data ID.
       tags:
         - Ctfd Flag Data
       parameters:
@@ -1050,7 +1051,7 @@ paths:
   /users/delete:
     post:
       summary: Delete users
-      description: Delete users either by pool ID or by providing specific user IDs in request body
+      description: Delete users inside pool.
       tags:
         - Ludus User Management
       parameters:
@@ -1172,14 +1173,14 @@ paths:
     get:
       summary: Get all users from Ludus API with main user filtering
       description: |
-        Retrieves all users from the Ludus API and filters out main users assigned to pools.
+        Retrieves possible new main users from the Ludus API.
         
         By default, returns all user IDs from Ludus minus the main user IDs currently assigned to pools and ROOT user (allUserIds - mainUserIds - ROOT).
         This is useful for getting available users that can be assigned to new pools.
         
         With the 'current' parameter, returns only the main user IDs currently assigned to pools.
         
-        With the 'poolId' parameter (without 'current'), includes main users from the specified pool in the filtered results.
+        With the 'poolId' parameter, includes main users from the specified pool in the filtered results.
       tags:
         - Ludus User Management
       parameters:
@@ -1240,47 +1241,47 @@ paths:
                   summary: No users found
                   value:
                     userIds: []
-          '400':
-            description: Bad Request - Invalid pool ID
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
-                examples:
-                  invalid_pool:
-                    summary: Invalid or non-existent pool ID
-                    value:
-                      error: "Pool not found"
-          '404':
-            description: Pool Not Found
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
-                examples:
-                  pool_not_found:
-                    summary: Specified pool does not exist
-                    value:
-                      error: "Pool not found"
-          '500':
-            description: Internal Server Error - Failed to retrieve users from Ludus API or pools
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
-                examples:
-                  ludus_error:
-                    summary: Failed to retrieve from Ludus
-                    value:
-                      error: "Failed to retrieve users from Ludus"
-                  main_users_error:
-                    summary: Failed to retrieve main users
-                    value:
-                      error: "Failed to retrieve main users"
-                  format_error:
-                    summary: Invalid response format
-                    value:
-                      error: "Invalid response format from Ludus"
+        '400':
+          description: Bad Request - Invalid pool ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_pool:
+                  summary: Invalid or non-existent pool ID
+                  value:
+                    error: "Pool not found"
+        '404':
+          description: Pool Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                pool_not_found:
+                  summary: Specified pool does not exist
+                  value:
+                    error: "Pool not found"
+        '500':
+          description: Internal Server Error - Failed to retrieve users from Ludus API or pools
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                ludus_error:
+                  summary: Failed to retrieve from Ludus
+                  value:
+                    error: "Failed to retrieve users from Ludus"
+                main_users_error:
+                  summary: Failed to retrieve main users
+                  value:
+                    error: "Failed to retrieve main users"
+                format_error:
+                  summary: Invalid response format
+                  value:
+                    error: "Invalid response format from Ludus"
 
   # Ludus Range Config
   /range/config:
@@ -1644,15 +1645,15 @@ paths:
 
   /range/share/user:
     post:
-      summary: Share ranges from a user to pool users
+      summary: Share pool ranges to a target user
       description: |
-        Shares ranges from a specified source user to users in a pool.
+        Shares ranges from pool users to a specified target user (e.g., instructor or examiner).
         
         The behavior differs based on pool type:
-        - For SHARED pools: Shares from targetUserId to all main users in the pool
-        - For INDIVIDUAL pools: Shares from targetUserId to all regular users in the pool
+        - For SHARED pools: All main users in the pool share their ranges TO targetUserId
+        - For INDIVIDUAL pools: All regular users in the pool share their ranges TO targetUserId
         
-        This allows an instructor or admin to grant their range access to pool users.
+        This allows an instructor or examiner to gain access to all ranges within a pool for monitoring or grading purposes.
       tags:
         - Ludus Range Sharing
       parameters:
@@ -1662,15 +1663,15 @@ paths:
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID containing the target users
+          description: Pool ID containing the users who will share their ranges
           example: "ABC123"
         - name: targetUserId
           in: query
           required: true
           schema:
             type: string
-          description: Source user ID who will share their ranges to pool users
-          example: "instructor1"
+          description: Target user ID who will gain access to pool users' ranges
+          example: "EXAMINER1"
       responses:
         '200':
           description: Share operation results
@@ -1686,11 +1687,14 @@ paths:
                       properties:
                         userId:
                           type: string
-                          example: "instructor1"
+                          description: Pool user ID that shared to targetUserId
+                          example: "SHARED1"
                         response:
                           type: object
+                          description: Ludus API response for successful share
                         error:
                           type: string
+                          description: Error message if sharing failed
                 required:
                   - results
         '400':
@@ -1714,15 +1718,15 @@ paths:
 
   /range/unshare/user:
     post:
-      summary: Revoke range sharing from a user to pool users
+      summary: Revoke pool range sharing from a target user
       description: |
-        Revokes range sharing from a specified source user to users in a pool.
+        Revokes range sharing from pool users to a specified target user.
         
         The behavior differs based on pool type:
-        - For SHARED pools: Revokes sharing from targetUserId to all main users in the pool
-        - For INDIVIDUAL pools: Revokes sharing from targetUserId to all regular users in the pool
+        - For SHARED pools: All main users in the pool revoke sharing TO targetUserId
+        - For INDIVIDUAL pools: All regular users in the pool revoke sharing TO targetUserId
         
-        This allows revoking previously granted range access.
+        This revokes a previously granted access, removing the target user's ability to access pool ranges.
       tags:
         - Ludus Range Sharing
       parameters:
@@ -1732,15 +1736,15 @@ paths:
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID containing the target users
+          description: Pool ID containing the users who will revoke sharing
           example: "ABC123"
         - name: targetUserId
           in: query
           required: true
           schema:
             type: string
-          description: Source user ID whose range sharing will be revoked from pool users
-          example: "instructor1"
+          description: Target user ID whose access to pool ranges will be revoked
+          example: "EXAMINER1"
       responses:
         '200':
           description: Unshare operation results
@@ -1756,11 +1760,14 @@ paths:
                       properties:
                         userId:
                           type: string
-                          example: "instructor1"
+                          description: Pool user ID that revoked sharing to targetUserId
+                          example: "SHARED1"
                         response:
                           type: object
+                          description: Ludus API response for successful unshare
                         error:
                           type: string
+                          description: Error message if unsharing failed
                 required:
                   - results
         '400':
@@ -1784,20 +1791,20 @@ paths:
 
   /range/shared/user:
     get:
-      summary: Check comprehensive range sharing status from a user to pool users
+      summary: Check if pool users have shared ranges to a target user
       description: |
-        Checks the detailed range sharing status from a specified source user to users in a pool.
+        Checks whether pool users have shared their ranges to a specified target user.
         
-        This endpoint provides comprehensive sharing status information by checking:
+        This endpoint provides comprehensive sharing status by checking:
         1. Whether all pool users exist in the Ludus range access list
-        2. Whether the specified targetUserId has shared ranges to each pool user
+        2. Whether each pool user has shared their range TO the specified targetUserId
         3. Overall sharing status indicators
         
         The behavior differs based on pool type:
-        - For SHARED pools: Checks sharing from targetUserId to all main users in the pool
-        - For INDIVIDUAL pools: Checks sharing from targetUserId to all regular users in the pool
+        - For SHARED pools: Checks if all main users in the pool have shared TO targetUserId
+        - For INDIVIDUAL pools: Checks if all regular users in the pool have shared TO targetUserId
         
-        Returns both granular and summary sharing status information.
+        Returns summary sharing status information.
       tags:
         - Ludus Range Sharing
       parameters:
@@ -1807,14 +1814,14 @@ paths:
           schema:
             type: string
             pattern: "^[a-zA-Z0-9]{6}$"
-          description: Pool ID containing the target users to check sharing status for
+          description: Pool ID containing the users to check
           example: "ABC123"
         - name: targetUserId
           in: query
           required: true
           schema:
             type: string
-          description: Source user ID to check sharing status from (the user who may have shared their ranges)
+          description: Target user ID to check if they have access to pool ranges
           example: "EXAMINER1"
       responses:
         '200':
@@ -1829,12 +1836,12 @@ paths:
                     description: |
                       True if ALL conditions are met:
                       - All pool users exist in the Ludus range access list
-                      - The targetUserId has shared ranges to ALL pool users
+                      - ALL pool users have shared their ranges TO targetUserId
                     example: true
                   unshared:
                     type: boolean
                     description: |
-                      True if the targetUserId has NOT shared ranges to ANY pool users.
+                      True if NO pool users have shared their ranges TO targetUserId.
                       This is the inverse of anyShared (unshared = !anyShared).
                     example: false
                 required:
@@ -1842,20 +1849,20 @@ paths:
                   - unshared
               examples:
                 fully_shared:
-                  summary: All users have access
-                  description: targetUserId has shared to all pool users and all users exist in range access list
+                  summary: All pool users have shared to target user
+                  description: targetUserId has access to all pool users' ranges
                   value:
                     shared: true
                     unshared: false
                 partially_shared:
-                  summary: Some users have access
-                  description: targetUserId has shared to some but not all pool users
+                  summary: Some pool users have shared to target user
+                  description: targetUserId has access to some but not all pool users' ranges
                   value:
                     shared: false
                     unshared: false
                 not_shared:
-                  summary: No users have access
-                  description: targetUserId has not shared to any pool users
+                  summary: No pool users have shared to target user
+                  description: targetUserId has no access to any pool users' ranges
                   value:
                     shared: false
                     unshared: true
@@ -2418,7 +2425,7 @@ paths:
   /stats/proxmox:
     get:
       summary: Get Proxmox cluster statistics
-      description: Retrieves comprehensive statistics about the Proxmox cluster including users, templates, VMs, topologies, scenarios, roles, pools, and node information
+      description: Retrieves comprehensive statistics about the Proxmox cluster including users, templates, VMs, topologies, scenarios, roles, pools, node information, and Ludus server version
       operationId: getProxmoxStatistics
       tags: 
         - Proxmox
@@ -2445,6 +2452,7 @@ paths:
                   - diskUsedGiB
                   - diskTotalGiB
                   - uptimeFormatted
+                  - ludusVersion
                 properties:
                   users:
                     type: integer
@@ -2528,6 +2536,10 @@ paths:
                     description: Human-readable uptime format (e.g., "2w 4d 3h")
                     pattern: '^(\d+w\s)?(\d+d\s)?(\d+h)?$'
                     example: "2w 4d 3h"
+                  ludusVersion:
+                    type: string
+                    description: Ludus server version (trimmed format without build metadata)
+                    example: "Ludus Server v1.0.0"
               example:
                 users: 5
                 templates: 6
@@ -2544,6 +2556,7 @@ paths:
                 diskUsedGiB: 66.51
                 diskTotalGiB: 822.43
                 uptimeFormatted: "2w 4d 3h"
+                ludusVersion: "Ludus Server v1.0.0"
         '401':
           description: Unauthorized - Invalid or missing API key
           content:

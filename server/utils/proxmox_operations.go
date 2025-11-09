@@ -65,6 +65,7 @@ type ProxmoxStatistics struct {
 	DiskUsedGiB        float64 `json:"diskUsedGiB"`
 	DiskTotalGiB       float64 `json:"diskTotalGiB"`
 	UptimeFormatted    string  `json:"uptimeFormatted"`
+	LudusVersion       string  `json:"ludusVersion"`
 }
 
 func NewProxmoxClient(baseURL string) *ProxmoxClient {
@@ -189,6 +190,14 @@ func ParseStatistics(resources *ProxmoxClusterResourcesResponse, apiKey string) 
 	stats.NumberOfScenarios = countDirectories(config.CtfdScenarioFolder)
 	stats.NumberOfPools = countDirectories(config.PoolFolder)
 	stats.NumberOfRoles = getRolesCount(apiKey)
+
+	// Get Ludus server version
+	version, err := GetLudusServerVersion(apiKey)
+	if err == nil {
+		stats.LudusVersion = version
+	} else {
+		stats.LudusVersion = "Unknown"
+	}
 
 	// Process node statistics
 	if nodeResource != nil {
