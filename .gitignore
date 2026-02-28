@@ -8,3 +8,4 @@ setup
 .DS_Store
 /server/scenario-manager-api
 .env
+.vscode/

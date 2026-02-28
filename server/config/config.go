@@ -19,14 +19,12 @@ var (
 	LudusUrl                     string
 	MaxConcurrentRequests        int
 	ProxmoxURL                   string
-	ProxmoxUsername              string
-	ProxmoxPassword              string
 	ProxmoxCertPath              string
 	ProxmoxNodeName              string
 )
 
 func init() {
-	err := godotenv.Load("../.env")
+	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatalf("Env file is not used")
 	}
@@ -59,8 +57,6 @@ func loadVariables() {
 	LudusUrl = getEnv("LUDUS_URL")
 	ProxmoxURL = getEnv("PROXMOX_URL")
 
-	ProxmoxUsername = getEnv("PROXMOX_USERNAME")
-	ProxmoxPassword = getEnv("PROXMOX_PASSWORD")
 	ProxmoxCertPath = getEnv("PROXMOX_CERT_PATH")
 	ProxmoxNodeName = getEnv("PROXMOX_NODE_NAME")
 

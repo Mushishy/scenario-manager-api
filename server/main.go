@@ -56,6 +56,6 @@ func main() {
 		// Start the server with TLS
 		fmt.Println("Starting https server")
 		gin.SetMode(gin.ReleaseMode)
-		r.RunTLS("0.0.0.0:5000", certPath, keyPath)
+		r.RunTLS("127.0.0.1:5000", certPath, keyPath)
 	}
 }

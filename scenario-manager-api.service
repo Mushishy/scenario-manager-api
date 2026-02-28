@@ -1,0 +1,30 @@
+[Unit]
+Description=Scenario Manager API
+After=network.target
+
+[Service]
+Type=simple
+User=ludus
+Group=ludus
+WorkingDirectory=/opt/scenario-manager-api
+ExecStart=/opt/scenario-manager-api/scenario-manager-api
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=scenario-manager-api
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+
+# Allow read 
+ReadOnlyPaths=/opt/ludus/ludus.db
+ReadOnlyPaths=/etc/pve/nodes/artemis/pve-ssl.pem
+ReadOnlyPaths=/etc/pve/nodes/artemis/pve-ssl.key
+ReadOnlyPaths=/opt/scenario-manager-api/.env
+
+# Environment variables
+Environment=GIN_MODE=release
+EnvironmentFile=/opt/scenario-manager-api/.env
+
+[Install]
+WantedBy=multi-user.target

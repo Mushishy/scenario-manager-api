@@ -32,7 +32,7 @@ func validateAPIKey(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bad Request"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal errorrrrrrrr"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Wrong API Key"})
 		}
 		c.Abort()
 		return
