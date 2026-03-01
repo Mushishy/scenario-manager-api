@@ -18,8 +18,8 @@ RestrictSUIDSGID=true
 
 # Allow read 
 ReadOnlyPaths=/opt/ludus/ludus.db
-ReadOnlyPaths=/etc/pve/nodes/artemis/pve-ssl.pem
-ReadOnlyPaths=/etc/pve/nodes/artemis/pve-ssl.key
+ReadOnlyPaths=/opt/scenario-manager-api/certs/pve-ssl.pem
+ReadOnlyPaths=/opt/scenario-manager-api/certs/pve-ssl.key
 ReadOnlyPaths=/opt/scenario-manager-api/.env
 
 # Environment variables
