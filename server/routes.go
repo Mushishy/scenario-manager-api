@@ -5,6 +5,7 @@ import (
 	"dulus/server/handlers"
 	"dulus/server/utils"
 	"net/http"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -27,12 +28,36 @@ func validateAPIKey(c *gin.Context) {
 		return
 	}
 
-	err := db.QueryRow("SELECT is_admin, hashed_api_key FROM user_objects WHERE user_id = ?", userID).Scan(&isAdmin, &hashedAPIKey)
+	// Retry logic for SQLite busy errors
+	var err error
+	maxRetries := 5
+	baseDelay := 10 * time.Millisecond
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err = db.QueryRow("SELECT is_admin, hashed_api_key FROM user_objects WHERE user_id = ?", userID).Scan(&isAdmin, &hashedAPIKey)
+		if err != nil {
+			// Check if it's a busy error
+			if err.Error() == "database is locked" || err.Error() == "database is locked (5) (SQLITE_BUSY)" {
+				if attempt < maxRetries-1 {
+					// Exponential backoff: 10ms, 20ms, 40ms, 80ms
+					delay := time.Duration(1<<attempt) * baseDelay
+					time.Sleep(delay)
+					continue
+				}
+			}
+			// If it's not a busy error or we've exhausted retries, handle the error
+			break
+		} else {
+			// Success, break out of retry loop
+			break
+		}
+	}
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bad Request"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Wrong API Key"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
 		c.Abort()
 		return
