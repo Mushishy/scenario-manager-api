@@ -60,6 +60,10 @@ paths:
                       scenarioFile:
                         type: string
                         description: base64-encoded file
+                      scenarioMode:
+                        type: string
+                        enum: ["users", "teams"]
+                        description: CTFd scenario user mode (only present for valid CTFd scenarios)
                       createdAt:
                         type: string
                         description: File creation timestamp
@@ -72,6 +76,10 @@ paths:
                           pattern: "^[a-zA-Z0-9]{6}$"
                         scenarioName:
                           type: string
+                        scenarioMode:
+                          type: string
+                          enum: ["users", "teams"]
+                          description: CTFd scenario user mode (only present for valid CTFd scenarios)
                         createdAt:
                           type: string
                           description: File creation timestamp
@@ -528,6 +536,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /pool/dev:
+    post:
+      summary: Create a new development pool
+      description: Create a simplified development pool with fixed INDIVIDUAL type and ctfdev topology. Only requires a note and automatically sets up the user based on the API key.
+      tags:
+        - Pool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  example: "My development pool"
+              required:
+                - note
+              additionalProperties: false
+      responses:
+        '200':
+          description: Dev pool created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Uploaded successfully"
+                  id:
+                    type: string
+                    example: "A1B2C3"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Bad Request"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal Server Error"
 
   /pool/topology:
     patch:
@@ -1181,6 +1253,8 @@ paths:
         With the 'current' parameter, returns only the main user IDs currently assigned to pools.
         
         With the 'poolId' parameter, includes main users from the specified pool in the filtered results.
+        
+        With the 'isCtfd' parameter, filters results to only include users whose userID starts with "CTFD".
       tags:
         - Ludus User Management
       parameters:
@@ -1201,6 +1275,13 @@ paths:
             If provided (without 'current' parameter), includes main users from the specified pool in the filtered results.
             This allows getting available users plus the main users from a specific pool.
           example: "8vrVI4"
+        - name: isCtfd
+          in: query
+          required: false
+          schema:
+            type: string
+          description: If provided (any value), filters results to only include users whose userID starts with "CTFD"
+          example: "true"
       responses:
         '200':
           description: Successfully retrieved and filtered user IDs
@@ -1218,6 +1299,7 @@ paths:
                       - No parameters: All Ludus users minus main users assigned to pools minus ROOT
                       - With 'current': Only main users currently assigned to pools
                       - With 'poolId': Available users plus main users from the specified pool
+                      - With 'isCtfd': Only users whose userID starts with "CTFD"
                     example: ["JD", "user1", "user2"]
                 required:
                   - userIds
@@ -1237,6 +1319,11 @@ paths:
                   description: With 'poolId' parameter - returns available users plus main users from specified pool
                   value:
                     userIds: ["JD", "student1", "student2", "available_user", "pool_instructor1"]
+                ctfd_users_only:
+                  summary: CTFD users only
+                  description: With 'isCtfd' parameter - returns only users starting with "CTFD"
+                  value:
+                    userIds: ["CTFD001", "CTFD002", "CTFDadmin"]
                 no_users:
                   summary: No users found
                   value:
@@ -2602,24 +2689,14 @@ paths:
                   minLength: 1
                   description: ID of the scenario definition data (JSON file)
                   example: "DEF456"
-                usernameConfig:
-                  type: string
-                  description: Username used in the imported scenario definition
-                  default: "admin"
-                  example: "admin"
-                passwordConfig:
-                  type: string
-                  description: Password used in the imported scenario definition
-                  default: "admin"
-                  example: "password123"
                 adminUsername:
                   type: string
-                  description: Username of the new administrator (must be different from usernameConfig)
+                  description: Username of the administrator
                   default: "supervisor"
                   example: "supervisor"
                 adminPassword:
                   type: string
-                  description: Password of the new administrator
+                  description: Password of the administrator
                   default: "admin"
                   example: "newpassword"
                 ctfName:
@@ -2636,6 +2713,12 @@ paths:
                   type: string
                   enum: ["private", "public"]
                   description: Challenge visibility setting
+                  default: "private"
+                  example: "private"
+                challengeRatings:
+                  type: string
+                  enum: ["private", "public"]
+                  description: Challenge ratings visibility setting
                   default: "private"
                   example: "private"
                 accountVisibility:

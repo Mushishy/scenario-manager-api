@@ -2,10 +2,13 @@ ludus.db
 notes.md
 setup
 /server/data/topologies/*
+!/server/data/topologies/ctfdev
 /server/data/scenarios/*
 /server/data/pools/*
 /server/data/input/*
+/server/data/ctfd_scenarios/*
 .DS_Store
 /server/scenario-manager-api
 .env
 .vscode/
+certs/      

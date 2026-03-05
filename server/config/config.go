@@ -9,18 +9,19 @@ import (
 )
 
 var (
-	TemplateCtfdTopologyLocation string
-	CtfdScenarioFolder           string
-	TopologyConfigFolder         string
-	PoolFolder                   string
-	DatabaseLocation             string
-	TimestampFormat              string
-	LudusAdminUrl                string
-	LudusUrl                     string
-	MaxConcurrentRequests        int
-	ProxmoxURL                   string
-	ProxmoxCertPath              string
-	ProxmoxNodeName              string
+	TemplateCtfdTopologyLocation    string
+	TemplateDevCtfdTopologyLocation string
+	CtfdScenarioFolder              string
+	TopologyConfigFolder            string
+	PoolFolder                      string
+	DatabaseLocation                string
+	TimestampFormat                 string
+	LudusAdminUrl                   string
+	LudusUrl                        string
+	MaxConcurrentRequests           int
+	ProxmoxURL                      string
+	ProxmoxCertPath                 string
+	ProxmoxNodeName                 string
 )
 
 func init() {
@@ -61,7 +62,8 @@ func loadVariables() {
 	ProxmoxNodeName = getEnv("PROXMOX_NODE_NAME")
 
 	TemplateCtfdTopologyLocation = DataLocation + "/ctfd_topology.yml"
-	CtfdScenarioFolder = DataLocation + "/scenarios/"
+	TemplateDevCtfdTopologyLocation = DataLocation + "/ctfd_dev_topology.yml"
+	CtfdScenarioFolder = DataLocation + "/ctfd_scenarios/"
 	TopologyConfigFolder = DataLocation + "/topologies/"
 	PoolFolder = DataLocation + "/pools/"
 	TimestampFormat = "2006-01-02T15:04:05Z07:00"

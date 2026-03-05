@@ -111,6 +111,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// Pool route
 	r.POST("/pool", validateAPIKey, handlers.PostPool)
+	r.POST("/pool/dev", validateAPIKey, handlers.PostPoolDev)
 	r.PATCH("/pool/topology", validateAPIKey, handlers.PatchPoolTopology)
 	r.PATCH("/pool/note", validateAPIKey, handlers.PatchPoolNote)
 	r.PATCH("/pool/users", validateAPIKey, handlers.PatchPoolUsers)

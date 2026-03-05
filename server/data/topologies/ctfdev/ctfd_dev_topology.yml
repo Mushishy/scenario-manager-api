@@ -1,0 +1,16 @@
+ludus:
+  - vm_name: "{{ range_id }}-ctfd"
+    hostname: "ctfd"
+    template: debian-12-x64-server-template
+    vlan: 10
+    ip_last_octet: 10
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: true
+      block_internet: true
+    roles:
+      - ludus_fiit_ctfd
+    role_vars:
+      ludus_fiit_ctfd_dev_mode: true

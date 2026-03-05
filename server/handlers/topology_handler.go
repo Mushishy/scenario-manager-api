@@ -25,6 +25,11 @@ func GetTopology(c *gin.Context) {
 func PutTopology(c *gin.Context) {
 	topologyId := utils.GetOptionalQueryParam(c, "topologyId")
 
+	if topologyId == "ctfdev" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
 	id, ok := utils.SaveUploadedFile(c, config.TopologyConfigFolder, topologyId, ".yml")
 	if !ok {
 		return
@@ -36,6 +41,11 @@ func PutTopology(c *gin.Context) {
 func DeleteTopology(c *gin.Context) {
 	topologyId, ok := utils.GetRequiredQueryParam(c, "topologyId")
 	if !ok {
+		return
+	}
+
+	if topologyId == "ctfdev" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
 
@@ -60,7 +70,7 @@ func DeleteTopology(c *gin.Context) {
 			}
 
 			if pool.TopologyId == topologyId {
-				c.JSON(http.StatusConflict, gin.H{"error": "Topology is in use by pool " + poolDir.Name()})
+				c.JSON(http.StatusConflict, gin.H{"error": "Conflict"})
 				return
 			}
 		}
@@ -116,13 +126,12 @@ func PostCtfdTopology(c *gin.Context) {
 	replacements := map[string]string{
 		"$SECENARIO_ID":            `"` + inputCtfdOptions.ScenarioID + `"`,
 		"$POOL_ID":                 `"` + inputCtfdOptions.PoolID + `"`,
-		"$USERNAME_CONFIG":         `"` + inputCtfdOptions.UsernameConfig + `"`,
-		"$PASSWORD_CONFIG":         `"` + inputCtfdOptions.PasswordConfig + `"`,
 		"$ADMIN_USERNAME":          `"` + inputCtfdOptions.AdminUsername + `"`,
 		"$ADMIN_PASSWORD":          `"` + inputCtfdOptions.AdminPassword + `"`,
 		"$CTF_NAME":                `"` + inputCtfdOptions.CtfName + `"`,
 		"$CTF_DESCRIPTION":         `"` + inputCtfdOptions.CtfDescription + `"`,
 		"$CHALLENGE_VISIBILITY":    `"` + inputCtfdOptions.ChallengeVisibility + `"`,
+		"$CHALLENGE_RATINGS":       `"` + inputCtfdOptions.ChallengeRatings + `"`,
 		"$ACCOUNT_VISIBILITY":      `"` + inputCtfdOptions.AccountVisibility + `"`,
 		"$SCORE_VISIBILITY":        `"` + inputCtfdOptions.ScoreVisibility + `"`,
 		"$REGISTRATION_VISIBILITY": `"` + inputCtfdOptions.RegistrationVisibility + `"`,

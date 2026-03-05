@@ -14,14 +14,6 @@
             "type": "string",
             "minLength": 1
         },
-        "usernameConfig": { 
-            "type": "string",
-            "default": "admin"
-        },
-        "passwordConfig": { 
-            "type": "string",
-            "default": "admin"
-        },
         "adminUsername": { 
             "type": "string",
             "default": "supervisor"
@@ -39,6 +31,11 @@
             "default": ""
         },
         "challengeVisibility": { 
+            "type": "string",
+            "enum": ["private", "public"],
+            "default": "private"
+        },
+        "challengeRatings": { 
             "type": "string",
             "enum": ["private", "public"],
             "default": "private"

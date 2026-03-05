@@ -62,6 +62,80 @@ func PostPool(c *gin.Context) {
 		return
 	}
 
+}
+
+func PostPoolDev(c *gin.Context) {
+	// Get API key from header
+	APIKey := c.Request.Header.Get("X-API-Key")
+	userID, ok := utils.ExtractUserIDFromAPIKey(c, APIKey)
+	if !ok {
+		return
+	}
+
+	// Get username from Ludus API
+	userResponse, err := utils.MakeLudusRequest("GET", config.LudusUrl+"/user", nil, APIKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	// Extract username from response
+	var username string
+	if userMap, ok := userResponse.(map[string]interface{}); ok {
+		if usernameVal, exists := userMap["username"]; exists {
+			if usernameStr, ok := usernameVal.(string); ok {
+				username = usernameStr
+			} else {
+				username = userID // fallback to userID
+			}
+		} else {
+			username = userID // fallback to userID
+		}
+	} else {
+		username = userID // fallback to userID
+	}
+
+	// Parse request body to get note
+	var requestBody struct {
+		Note string `json:"note"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	// Generate pool id and create folder
+	poolId, err := utils.GenerateUniqueID(config.PoolFolder)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	poolPath := filepath.Join(config.PoolFolder, poolId)
+	if err := os.MkdirAll(poolPath, os.ModePerm); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		return
+	}
+
+	// Create the fixed pool structure
+	poolData := map[string]interface{}{
+		"createdBy":  userID,
+		"note":       requestBody.Note,
+		"topologyId": "ctfdev",
+		"type":       "INDIVIDUAL",
+		"usersAndTeams": []map[string]interface{}{
+			{
+				"user":   username,
+				"userId": userID,
+			},
+		},
+	}
+
+	// Save pool data
+	if !utils.WritePoolDataWithResponse(c, poolPath, poolData) {
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Uploaded successfully", "id": poolId})
 }
 

@@ -233,5 +233,18 @@ func GetAllMainUsers(c *gin.Context) {
 		}
 	}
 
+	isCtfd := utils.GetOptionalQueryParam(c, "isCtfd")
+
+	// If isCtfd parameter is set, filter to only users starting with "CTFD"
+	if isCtfd != "" {
+		var ctfdUserIds []string
+		for _, userID := range filteredUserIds {
+			if len(userID) >= 4 && userID[:4] == "CTFD" {
+				ctfdUserIds = append(ctfdUserIds, userID)
+			}
+		}
+		filteredUserIds = ctfdUserIds
+	}
+
 	c.JSON(http.StatusOK, gin.H{"userIds": filteredUserIds})
 }
