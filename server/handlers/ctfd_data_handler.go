@@ -123,10 +123,13 @@ func PutCtfdData(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "No flags found for user: " + lookupKey})
 			return
 		}
+		if flags == nil {
+			flags = []utils.Flag{}
+		}
 
 		ctfdUser := utils.CtfdUser{
 			User:     userTeam.User,
-			Password: utils.RandomString(6),
+			Password: utils.RandomLowercaseString(5),
 			Team:     userTeam.Team,
 			Flags:    flags,
 		}

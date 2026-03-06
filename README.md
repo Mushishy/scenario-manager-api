@@ -28,6 +28,12 @@ go mod tidy
 go run .
 ```
 
+While developing I localforward ports from Ludus through ssh and set reading file limit to higher value
+
+```bash
+ulimit -n 10000
+```
+
 Change listen to 127.0.0.1 in `main.go` and comment out validateApiKey in `routes.go`
 
 To preview the backend api you can use docker image `swaggerapi/swagger-editor:latest`

@@ -191,10 +191,17 @@ func GetAllMainUsers(c *gin.Context) {
 		return
 	}
 
-	// Filter out main users and ROOT user from all users (allUserIds - mainUserIds - ROOT)
+	// Get all users (both userIds and mainUserIds) from all pools
+	allPoolUsers, err := utils.GetAllUserIdsFromPools(config.PoolFolder)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve pool users"})
+		return
+	}
+
+	// Filter out ALL pool users (regular + main) and ROOT from all users
 	var filteredUserIds []string
 	for _, userID := range allUserIds {
-		if !existingMainUsers[userID] && userID != "ROOT" {
+		if !allPoolUsers[userID] && userID != "ROOT" {
 			filteredUserIds = append(filteredUserIds, userID)
 		}
 	}
@@ -214,21 +221,22 @@ func GetAllMainUsers(c *gin.Context) {
 			return
 		}
 
-		// Extract userIds and mainUserIds from this specific pool
-		_, mainUserIds := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		// Extract both userIds and mainUserIds from this specific pool
+		// so users already assigned to this pool are available for re-selection
+		poolUserIds, poolMainUserIds := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
+		allPoolSpecificUsers := append(poolUserIds, poolMainUserIds...)
 
-		// Add main users from the specified pool to filtered results
-		for _, mainUserId := range mainUserIds {
+		for _, userId := range allPoolSpecificUsers {
 			// Avoid duplicates
 			found := false
 			for _, existing := range filteredUserIds {
-				if existing == mainUserId {
+				if existing == userId {
 					found = true
 					break
 				}
 			}
 			if !found {
-				filteredUserIds = append(filteredUserIds, mainUserId)
+				filteredUserIds = append(filteredUserIds, userId)
 			}
 		}
 	}

@@ -80,19 +80,13 @@ func PostPoolDev(c *gin.Context) {
 	}
 
 	// Extract username from response
-	var username string
-	if userMap, ok := userResponse.(map[string]interface{}); ok {
-		if usernameVal, exists := userMap["username"]; exists {
-			if usernameStr, ok := usernameVal.(string); ok {
-				username = usernameStr
-			} else {
-				username = userID // fallback to userID
+	username := userID // default fallback
+	if userArray, ok := userResponse.([]interface{}); ok && len(userArray) > 0 {
+		if userMap, ok := userArray[0].(map[string]interface{}); ok {
+			if nameStr, ok := userMap["name"].(string); ok {
+				username = nameStr
 			}
-		} else {
-			username = userID // fallback to userID
 		}
-	} else {
-		username = userID // fallback to userID
 	}
 
 	// Parse request body to get note
@@ -318,7 +312,7 @@ func GetPool(c *gin.Context) {
 		// Get creation time from pool.json file (same logic as GetAllPools)
 		poolJsonPath := filepath.Join(poolPath, "pool.json")
 		if fileInfo, err := os.Stat(poolJsonPath); err == nil {
-			poolMap["createdAt"] = fileInfo.ModTime()
+			poolMap["createdAt"] = fileInfo.ModTime().Format(config.TimestampFormat)
 		}
 
 		c.JSON(http.StatusOK, poolMap)

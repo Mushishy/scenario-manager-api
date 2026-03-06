@@ -20,6 +20,7 @@ import (
 var validFolderIDRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const lowercaseCharset = "abcdefghijklmnopqrstuvwxyz"
 
 // GenerateUniqueID generates a unique 6-character alphanumeric ID and ensures it's unique in the given folder.
 func GenerateUniqueID(basePath string) (string, error) {
@@ -40,6 +41,19 @@ func RandomString(length int) string {
 	}
 	for i := range b {
 		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return string(b)
+}
+
+// RandomLowercaseString generates a random lowercase string of the given length.
+func RandomLowercaseString(length int) string {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic("Failed to generate random string")
+	}
+	for i := range b {
+		b[i] = lowercaseCharset[b[i]%byte(len(lowercaseCharset))]
 	}
 	return string(b)
 }

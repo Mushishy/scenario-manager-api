@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"dulus/server/config"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -89,7 +90,7 @@ func GetAllPools(poolFolder string) ([]map[string]interface{}, error) {
 			// Get creation time from pool.json file
 			poolJsonPath := filepath.Join(poolPath, "pool.json")
 			if fileInfo, err := os.Stat(poolJsonPath); err == nil {
-				poolData["createdAt"] = fileInfo.ModTime()
+				poolData["createdAt"] = fileInfo.ModTime().Format(config.TimestampFormat)
 			}
 
 			pools = append(pools, poolData)

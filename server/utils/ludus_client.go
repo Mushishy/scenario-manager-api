@@ -391,8 +391,7 @@ func GetFlagsForUsers(c *gin.Context, userIds []string, apiKey string) (map[stri
 
 	// Process responses and create a map of userId -> flags
 	userFlagsMap := make(map[string][]Flag)
-	flagPattern := regexp.MustCompile(`&%&(.*?)&%&`)
-
+	flagPattern := regexp.MustCompile(`&%&&%&&%&(.*?)&%&&%&&%&`)
 	for _, resp := range responses {
 		if resp.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get flags for user: " + resp.UserID})
