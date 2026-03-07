@@ -17,7 +17,7 @@ ludus:
       # ludus_fiit_ctfd_dev_mode: false
 
       # Folder where data (definitions and their data are stored) - do NOT include trailing slash (/)
-      ludus_fiit_ctfd_fs_path: /opt/scenario-manager-api/data
+      ludus_fiit_ctfd_fs_path: "/opt/scenario-manager-api/data"
 
       # ID of the scenario definition (ZIP file) - MUST be set otherwise role fails
       # Used to construct the path to the scenario definition: {{ ludus_fiit_ctfd_fs_path }}/ctfd_scenarios/{{ ludus_fiit_ctfd_scenario_definition_id }}/scenario.zip

@@ -168,7 +168,7 @@ func ShareRange(c *gin.Context) {
 		}
 	}
 
-	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+	responses := utils.MakeConcurrentLudusRequestsWithSleep(requests, apiKey, config.MaxConcurrentRequests, config.DeploySleepDuration)
 
 	results := utils.ConvertResponsesToResults(responses)
 
@@ -217,7 +217,7 @@ func UnshareRange(c *gin.Context) {
 		}
 	}
 
-	responses := utils.MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+	responses := utils.MakeConcurrentLudusRequestsWithSleep(requests, apiKey, config.MaxConcurrentRequests, config.DeploySleepDuration)
 
 	results := utils.ConvertResponsesToResults(responses)
 

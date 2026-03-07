@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -22,6 +23,7 @@ var (
 	ProxmoxURL                      string
 	ProxmoxCertPath                 string
 	ProxmoxNodeName                 string
+	DeploySleepDuration             time.Duration
 )
 
 func init() {
@@ -60,6 +62,7 @@ func loadVariables() {
 
 	ProxmoxCertPath = getEnv("PROXMOX_CERT_PATH")
 	ProxmoxNodeName = getEnv("PROXMOX_NODE_NAME")
+	DeploySleepDuration = time.Duration(getEnvAsInt("DEPLOY_SLEEP_DURATION_SECONDS")) * time.Second
 
 	TemplateCtfdTopologyLocation = DataLocation + "/ctfd_topology.yml"
 	TemplateDevCtfdTopologyLocation = DataLocation + "/ctfd_dev_topology.yml"

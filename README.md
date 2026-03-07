@@ -19,6 +19,7 @@ LUDUS_URL=https://localhost:8080
 PROXMOX_URL=https://localhost:8006
 PROXMOX_CERT_PATH="./certs"                          
 PROXMOX_NODE_NAME=raven
+DEPLOY_SLEEP_DURATION_SECONDS=3
 ```
 
 

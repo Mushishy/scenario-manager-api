@@ -64,8 +64,13 @@ type LogResult struct {
 	Result string `json:"result"`
 }
 
-// MakeConcurrentLudusRequests processes multiple Ludus requests concurrently
+// MakeConcurrentLudusRequests processes multiple Ludus requests concurrently with optional sleep between requests
 func MakeConcurrentLudusRequests(requests []LudusRequest, apiKey string, maxConcurrency int) []LudusResponse {
+	return MakeConcurrentLudusRequestsWithSleep(requests, apiKey, maxConcurrency, time.Duration(0))
+}
+
+// MakeConcurrentLudusRequestsWithSleep processes multiple Ludus requests concurrently with configurable sleep between requests
+func MakeConcurrentLudusRequestsWithSleep(requests []LudusRequest, apiKey string, maxConcurrency int, sleepDuration time.Duration) []LudusResponse {
 	// Create channels
 	requestChan := make(chan LudusRequest, len(requests))
 	responseChan := make(chan LudusResponse, len(requests))
@@ -82,6 +87,10 @@ func MakeConcurrentLudusRequests(requests []LudusRequest, apiKey string, maxConc
 					UserID:   req.UserID,
 					Response: response,
 					Error:    err,
+				}
+				// Sleep between requests if configured
+				if sleepDuration > 0 {
+					time.Sleep(sleepDuration)
 				}
 			}
 		}()
