@@ -89,9 +89,7 @@ func MakeConcurrentLudusRequestsWithSleep(requests []LudusRequest, apiKey string
 					Error:    err,
 				}
 				// Sleep between requests if configured
-				if sleepDuration > 0 {
-					time.Sleep(sleepDuration)
-				}
+				time.Sleep(sleepDuration)
 			}
 		}()
 	}
