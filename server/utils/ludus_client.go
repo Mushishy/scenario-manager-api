@@ -111,7 +111,7 @@ func MakeConcurrentLudusRequests(requests []LudusRequest, apiKey string, maxConc
 // MakeSequentialRequestsWithSleep processes multiple Ludus requests sequentially with optional sleep between requests
 func MakeSequentialRequestsWithSleep(requests []LudusRequest, apiKey string, sleepDuration time.Duration) []LudusResponse {
 	results := make([]LudusResponse, 0, len(requests))
-	
+
 	for i, req := range requests {
 		response, err := MakeLudusRequest(req.Method, req.URL, req.Payload, apiKey)
 		results = append(results, LudusResponse{
@@ -119,13 +119,13 @@ func MakeSequentialRequestsWithSleep(requests []LudusRequest, apiKey string, sle
 			Response: response,
 			Error:    err,
 		})
-		
+
 		// Sleep between requests if configured and not the last request
 		if sleepDuration > 0 && i < len(requests)-1 {
 			time.Sleep(sleepDuration)
 		}
 	}
-	
+
 	return results
 }
 
