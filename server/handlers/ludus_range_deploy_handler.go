@@ -106,11 +106,19 @@ func CheckRangeStatus(c *gin.Context) {
 		return
 	}
 
+	isDestroying := utils.GetOptionalQueryParam(c, "isDestroying")
+
 	var users []string
 	var mainUsers []string
 	if pool.Type == "SHARED" {
 		userIds, mainUserIds := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)
-		users = append(userIds, mainUserIds...)
+		if isDestroying != "" {
+			// When destroying, only check main users for SHARED pools
+			users = mainUserIds
+		} else {
+			// Normal behavior: check both regular and main users
+			users = append(userIds, mainUserIds...)
+		}
 		mainUsers = mainUserIds
 	} else {
 		userIds, _ := utils.ExtractUserIdsAndMainUserIdsFromPool(pool)

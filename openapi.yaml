@@ -687,7 +687,7 @@ paths:
               properties:
                 note:
                   type: string
-                  maxLength: 15
+                  maxLength: 30
               required:
                 - note
       responses:
@@ -2078,6 +2078,13 @@ paths:
             pattern: "^[a-zA-Z0-9]{6}$"
           description: Pool ID to get users from
           example: "ABC123"
+        - name: isDestroying
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional parameter to modify user selection for SHARED pools. When set, only checks main users for SHARED pools instead of both regular and main users.
+          example: "true"
       responses:
         '200':
           description: Status check results

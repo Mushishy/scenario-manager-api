@@ -128,7 +128,7 @@ func PutCtfdData(c *gin.Context) {
 		}
 
 		ctfdUser := utils.CtfdUser{
-			User:     userTeam.User,
+			User:     strings.ReplaceAll(userTeam.User, " ", ""),
 			Password: utils.RandomLowercaseString(5),
 			Team:     userTeam.Team,
 			Flags:    flags,
