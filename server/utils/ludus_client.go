@@ -66,11 +66,6 @@ type LogResult struct {
 
 // MakeConcurrentLudusRequests processes multiple Ludus requests concurrently with optional sleep between requests
 func MakeConcurrentLudusRequests(requests []LudusRequest, apiKey string, maxConcurrency int) []LudusResponse {
-	return MakeConcurrentLudusRequestsWithSleep(requests, apiKey, maxConcurrency, time.Duration(0))
-}
-
-// MakeConcurrentLudusRequestsWithSleep processes multiple Ludus requests concurrently with configurable sleep between requests
-func MakeConcurrentLudusRequestsWithSleep(requests []LudusRequest, apiKey string, maxConcurrency int, sleepDuration time.Duration) []LudusResponse {
 	// Create channels
 	requestChan := make(chan LudusRequest, len(requests))
 	responseChan := make(chan LudusResponse, len(requests))
@@ -88,8 +83,6 @@ func MakeConcurrentLudusRequestsWithSleep(requests []LudusRequest, apiKey string
 					Response: response,
 					Error:    err,
 				}
-				// Sleep between requests if configured
-				time.Sleep(sleepDuration)
 			}
 		}()
 	}
@@ -112,6 +105,27 @@ func MakeConcurrentLudusRequestsWithSleep(requests []LudusRequest, apiKey string
 		results = append(results, response)
 	}
 
+	return results
+}
+
+// MakeSequentialRequestsWithSleep processes multiple Ludus requests sequentially with optional sleep between requests
+func MakeSequentialRequestsWithSleep(requests []LudusRequest, apiKey string, sleepDuration time.Duration) []LudusResponse {
+	results := make([]LudusResponse, 0, len(requests))
+	
+	for i, req := range requests {
+		response, err := MakeLudusRequest(req.Method, req.URL, req.Payload, apiKey)
+		results = append(results, LudusResponse{
+			UserID:   req.UserID,
+			Response: response,
+			Error:    err,
+		})
+		
+		// Sleep between requests if configured and not the last request
+		if sleepDuration > 0 && i < len(requests)-1 {
+			time.Sleep(sleepDuration)
+		}
+	}
+	
 	return results
 }
 

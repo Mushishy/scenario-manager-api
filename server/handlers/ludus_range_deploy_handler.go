@@ -72,7 +72,7 @@ func DeployRange(c *gin.Context) {
 				}
 			}
 
-			utils.MakeConcurrentLudusRequestsWithSleep(requests, apiKey, concurrentRequests, config.DeploySleepDuration)
+			utils.MakeSequentialRequestsWithSleep(requests, apiKey, config.DeploySleepDuration)
 
 			// Note: In async mode, we don't collect/return results
 			// Use CheckRangeStatus to monitor deployment progress
@@ -294,7 +294,7 @@ func RedeployRange(c *gin.Context) {
 						UserID:  userID,
 					}
 				}
-				utils.MakeConcurrentLudusRequestsWithSleep(redeployRequests, apiKey, concurrentRequests, config.DeploySleepDuration)
+				utils.MakeSequentialRequestsWithSleep(redeployRequests, apiKey, config.DeploySleepDuration)
 
 				// Step 6: Wait for this batch to finish deploying
 				utils.WaitForBatchDeployment(allUsersInBatch, apiKey, 30*time.Second)
