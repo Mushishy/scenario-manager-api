@@ -152,4 +152,8 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// Proxmox statistics
 	r.GET("/stats/proxmox", validateAPIKey, handlers.GetProxmoxStatistics)
+
+	// Power Management
+	r.PUT("/range/poweron", validateAPIKey, handlers.PutPowerOn)
+	r.PUT("/range/poweroff", validateAPIKey, handlers.PutPowerOff)
 }

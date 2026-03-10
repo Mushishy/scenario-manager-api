@@ -2474,27 +2474,41 @@ paths:
                     type: boolean
                     description: The common testing status (only meaningful if allSame is true)
                     example: true
+                  poweredOn:
+                    type: boolean
+                    description: Whether all ranges are powered on (false if any range has 0 VMs or any VM is powered off)
+                    example: true
               examples:
                 all_enabled:
                   summary: All users have testing enabled
                   value:
                     allSame: true
                     testingEnabled: true
+                    poweredOn: true
                 all_disabled:
                   summary: All users have testing disabled
                   value:
                     allSame: true
                     testingEnabled: false
+                    poweredOn: true
                 mixed_status:
                   summary: Users have different testing statuses
                   value:
                     allSame: false
                     testingEnabled: false
+                    poweredOn: true
                 no_users:
                   summary: No valid users found
                   value:
                     allSame: false
                     testingEnabled: false
+                    poweredOn: false
+                ranges_powered_off:
+                  summary: At least one range has no VMs or powered off VMs
+                  value:
+                    allSame: true
+                    testingEnabled: false
+                    poweredOn: false
         '400':
           description: Bad request - invalid pool ID or other parameter error
           content:
@@ -2833,3 +2847,161 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /range/poweroff:
+    put:
+      summary: Power off all VMs for a pool
+      description: Power off all virtual machines for all users in the specified pool
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          description: The ID of the pool to power off VMs for
+          schema:
+            type: string
+            example: "U8b1hP"
+      tags:
+        - Ludus Range Power
+      responses:
+        '200':
+          description: Power off requests completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          description: User ID that was processed
+                          example: "JD"
+                        response:
+                          type: object
+                          description: Response from Ludus API (if successful)
+                        error:
+                          type: string
+                          description: Error message (if failed)
+                          example: "User not found"
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "VMs powered off"
+                      - userId: "user2"
+                        response:
+                          status: "VMs powered off"
+                error_mixed:
+                  summary: Mixed success/error response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "VMs powered off"
+                      - userId: "invalid_user"
+                        error: "User not found"
+        '400':
+          description: Bad request - invalid pool ID or other parameter error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid pool ID"
+        '404':
+          description: Pool not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"
+
+  /range/poweron:
+    put:
+      summary: Power on all VMs for a pool
+      description: Power on all virtual machines for all users in the specified pool
+      parameters:
+        - name: poolId
+          in: query
+          required: true
+          description: The ID of the pool to power on VMs for
+          schema:
+            type: string
+            example: "U8b1hP"
+      tags:
+        - Ludus Range Power
+      responses:
+        '200':
+          description: Power on requests completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          description: User ID that was processed
+                          example: "JD"
+                        response:
+                          type: object
+                          description: Response from Ludus API (if successful)
+                        error:
+                          type: string
+                          description: Error message (if failed)
+                          example: "User not found"
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "VMs powered on"
+                      - userId: "user2"
+                        response:
+                          status: "VMs powered on"
+                error_mixed:
+                  summary: Mixed success/error response
+                  value:
+                    results:
+                      - userId: "JD"
+                        response:
+                          status: "VMs powered on"
+                      - userId: "invalid_user"
+                        error: "User not found"
+        '400':
+          description: Bad request - invalid pool ID or other parameter error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid pool ID"
+        '404':
+          description: Pool not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Not Found"

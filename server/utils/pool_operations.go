@@ -99,3 +99,46 @@ func GetAllPools(poolFolder string) ([]map[string]interface{}, error) {
 
 	return pools, nil
 }
+
+// ExecuteTestingAction is a generic helper function for testing actions
+func ExecuteTestingAction(c *gin.Context, endpoint string, payload interface{}) {
+	poolId, ok := GetRequiredQueryParam(c, "poolId")
+	if !ok {
+		return
+	}
+
+	poolPath, ok := ValidateFolderId(c, config.PoolFolder, poolId)
+	if !ok {
+		return
+	}
+
+	pool, ok := ReadPoolWithResponse(c, poolPath)
+	if !ok {
+		return
+	}
+
+	var users []string
+	if pool.Type == "SHARED" {
+		_, mainUsers := ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = mainUsers
+	} else {
+		userIds, _ := ExtractUserIdsAndMainUserIdsFromPool(pool)
+		users = userIds
+	}
+
+	apiKey := c.Request.Header.Get("X-API-Key")
+
+	requests := make([]LudusRequest, len(users))
+	for i, userID := range users {
+		requests[i] = LudusRequest{
+			Method:  "PUT",
+			URL:     config.LudusUrl + endpoint + "?userID=" + userID,
+			Payload: payload,
+			UserID:  userID,
+		}
+	}
+
+	responses := MakeConcurrentLudusRequests(requests, apiKey, config.MaxConcurrentRequests)
+	results := ConvertResponsesToResults(responses)
+	c.JSON(http.StatusOK, gin.H{"results": results})
+}
