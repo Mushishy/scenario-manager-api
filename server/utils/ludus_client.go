@@ -444,23 +444,29 @@ func ExtractUserFlags(resp LudusResponse, flagPattern *regexp.Regexp) []Flag {
 		return flags
 	}
 
-	match := flagPattern.FindStringSubmatch(logResult.Result)
-	if len(match) <= 1 {
+	matches := flagPattern.FindAllStringSubmatch(logResult.Result, -1)
+	if len(matches) == 0 {
 		return flags
 	}
 
-	content := strings.ReplaceAll(match[1], "\\", "")
+	for _, match := range matches {
+		if len(match) <= 1 {
+			continue
+		}
 
-	var jsonContent map[string]interface{}
-	if err := json.Unmarshal([]byte(content), &jsonContent); err != nil {
-		return flags
-	}
+		content := strings.ReplaceAll(match[1], "\\", "")
 
-	for key, value := range jsonContent {
-		flags = append(flags, Flag{
-			Variable: key,
-			Contents: value,
-		})
+		var jsonContent map[string]interface{}
+		if err := json.Unmarshal([]byte(content), &jsonContent); err != nil {
+			continue
+		}
+
+		for key, value := range jsonContent {
+			flags = append(flags, Flag{
+				Variable: key,
+				Contents: value,
+			})
+		}
 	}
 	return flags
 }
